@@ -1,11 +1,10 @@
 import pycom
 import time
 import struct
+from network import Sigfox
 from umqtt import MQTTClient
 from machine import UART
 from network import LoRa
-from network import Sigfox
-import socket
 import socket
 import ubinascii
 
@@ -41,6 +40,7 @@ def connect_sigfox():
 # send some data
     s.send("Hello SigFox")
     print ("Message sent on Sigfox")
+    return sigfox, s
 
 def connect_lora_otaa():
     lora = LoRa(mode=LoRa.LORAWAN, region=LoRa.EU868)
@@ -53,6 +53,10 @@ def connect_lora_otaa():
 
     print ("Finally Joined")
 
+# Print Stats
+    print("Lora.bandwidth is " + lora.Bandwidth())
+    print("Lora.sf is " + lora.sf())
+    print("lora.coding_rate is " lora.coding_rate())
 # create a LoRa socket
     s = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
 
@@ -62,10 +66,8 @@ def connect_lora_otaa():
 # make the socket blocking
 # (waits for the data to be sent and for the 2 receive windows to expire)
     s.setblocking(True)
-
 # send some data
     s.send(bytes([0x01, 0x02, 0x03]))
-
 # make the socket non-blocking
 # (because if there's no data received it will block forever...)
     s.setblocking(False)
@@ -73,6 +75,7 @@ def connect_lora_otaa():
 # get any data received (if any...)
     data = s.recv(64)
     print(data)
+    return lora, s
 
 
 def connect_lora_abp():
@@ -121,13 +124,26 @@ def connect_UART():
         except:
             print ("Keyboard Interrupt")
             raise
-            breakin
+            break
+
+def connect_nbiot():
+    lte = LTE()
+    lte.attach(band=20, apn="nb.inetd.gdsp")
+    while not lte.isattached():
+        print("LTE: Not attached yet")
+        time.sleep(0.25)
+    print("LTE: Attached")
+    lte.connect()       # start a data session and obtain an IP address
+    while not lte.isconnected():
+        print("LTE: Not connected yet")
+        time.sleep(0.25)
+    print("LTE: Connected")
 
 def main():
 #    connect_wifi(wifi_ssid, wifi_pass)
 #    connect_UART()
-#    connect_lora_otaa()
-    connect_sigfox()
+#    lora, s_lora = connect_lora_otaa()
+    sigfox, s_sigfox = connect_sigfox()
 
 if __name__ == "__main__":
     main()
