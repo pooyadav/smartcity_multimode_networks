@@ -13,10 +13,11 @@ import pycom
 import struct
 import socket
 import pycom
+import _thread
 
 
 # Wifi_Creds
-WIFI_SSID = "BTHub6-WK6Q-LS"
+WIFI_SSID = "BTHub6-WK6Q"
 WIFI_PASS = "9XGDxfLnPvEq"
 # Lora OTAA Key
 # create an OTAA authentication parameters
@@ -150,8 +151,8 @@ def connect_uart(s_lora, s_sigfox):
                 if uart_msg is not None:
 #                    send_mqtt(uart_msg)
                     uart_msg = uart_msg.decode("utf-8")
-#                    print("UART Message is " + str(type(uart_msg)) + str(uart_msg))
-                    check_connection(uart_msg, s_lora, s_sigfox)
+                    print("UART Message is " + str(type(uart_msg)) + str(uart_msg))
+                    check_connection_thread(uart_msg, s_lora, s_sigfox)
                     uart.write("Data sent\n")
         except:
             print("Keyboard Interrupt")
@@ -238,12 +239,68 @@ def post_var(msg, medium):
         raise
         pass
 
+def check_connection_thread(msg, s_lora, s_sigfox):
+    """ Check which networks are connected and send data via that network """
+#        check if wlan is connected
+#       if connected great! If not check if nb-iot, lora, sigfox
+    print ("Hello World")
+    args_tuple = [msg]
+    _thread.start_new_thread(thread_send_wifi, args_tuple)
+#    _thread.start_new_thread(thread_send_lte, args_tuple)
+    args_tuple = [msg, s_lora]
+    _thread.start_new_thread(thread_send_lora, args_tuple)
+    args_tuple = [msg, s_sigfox]
+    _thread.start_new_thread(thread_send_sigfox, args_tuple)
+    print("Bye World")
+
+
+def thread_send_wifi(msg):
+    if wlan.isconnected():
+        post_var(msg, "wifi")
+    else:
+        print("WiFi not connected")
+
+def thread_send_lte(msg):
+    if lte.isconnected():
+        post_var(msg, "lte")
+    else:
+        print("LTE not connected")
+
+def thread_send_lora(msg, s_lora):
+    if lora.has_joined():
+        s_lora.send()
+        print ("Message sent on lora")
+    else:
+        print("Lora not connected")
+
+def thread_send_sigfox(msg, s_sigfox):
+    # Send only important data on SigFox (12bytes)
+    if len(msg) > 12:
+        # Assuming data is currently epochtime:cputime like 1594329236:66.705 which is 17 bytes.
+        #Removing last two digit of epochtime (replace it with 00 at the server and removing : and . we make it to 12 bytes)
+        # Reduced to 1594329236:66.705 to 159432926670
+        temp_msg = msg
+        temp_epoch = temp_msg.split(':')[0]
+        temp_cputemp = temp_msg.split(':')[1]
+        temp_epoch2 = temp_epoch[:-2]
+        temp_cputemp2 = temp_cputemp.replace(".", "")
+        temp_cputemp3 = temp_cputemp2[:-1]
+        msg = temp_epoch2 + temp_cputemp3
+        s_sigfox.send(msg)
+        print("Data sent on SigFox")
+    else:
+        s_sigfox.send(msg)
+
 def main():
     """ Main function currently make calls to connect all networks and UART """
-#    connect_wifi(WIFI_SSID, WIFI_PASS)
+    connect_wifi(WIFI_SSID, WIFI_PASS)
     s_lora = connect_lora_otaa()
     s_sigfox = connect_sigfox()
-    connect_uart(s_lora, s_sigfox)
+#    connect_uart(s_lora, s_sigfox)
+    args_tuple = [s_lora, s_sigfox]
+    _thread.start_new_thread(connect_uart, args_tuple)
+    print("Everything is a thread")
+
 
 if __name__ == "__main__":
     main()
