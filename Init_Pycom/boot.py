@@ -159,6 +159,9 @@ def connect_uart(s_lora, s_sigfox):
             raise
             break
 
+def connect_uart2(s_lora, s_sigfox):
+    check_connection_thread("HelloWorld", s_lora, s_sigfox)
+
 def connect_nbiot():
     """ Connect to NB-IoT network"""
     lte.attach(band=20, apn="nb.inetd.gdsp")
@@ -225,9 +228,9 @@ def post_var(msg, medium):
         url = url + medium
         headers = {"X-Auth-Token": "FiPy", "Content-Type": "application/json"}
         if msg is not None:
-            print(msg)
+#            print(msg)
             req = requests.post(url=url, headers=headers, data=msg)
-            print (req.status_code)
+#            print (req.status_code)
             status_code = req.status_code
             req.close()
             return status_code
@@ -245,21 +248,24 @@ def check_connection_thread(msg, s_lora, s_sigfox):
 #       if connected great! If not check if nb-iot, lora, sigfox
     print ("Hello World")
     args_tuple = [msg]
-#    _thread.start_new_thread(thread_send_wifi, args_tuple)
+    _thread.start_new_thread(thread_send_wifi, args_tuple)
 #    _thread.start_new_thread(thread_send_lte, args_tuple)
-    s_lora.send("HelloWorld")
+#    s_lora.send("HelloWorld")
     args_tuple = [msg, s_lora]
     _thread.start_new_thread(thread_send_lora, args_tuple)
     args_tuple = [msg, s_sigfox]
-#    _thread.start_new_thread(thread_send_sigfox, args_tuple)
+    _thread.start_new_thread(thread_send_sigfox, args_tuple)
     print("Bye World")
 
 
 def thread_send_wifi(msg):
-    if wlan.isconnected():
-        post_var(msg, "wifi")
-    else:
-        print("WiFi not connected")
+    connect_wifi(WIFI_SSID, WIFI_PASS)
+    while True:
+        if wlan.isconnected():
+            post_var(msg, "wifi")
+        else:
+            print("WiFi not connected")
+            connect_wifi(WIFI_SSID, WIFI_PASS)
 
 def thread_send_lte(msg):
     if lte.isconnected():
@@ -268,14 +274,26 @@ def thread_send_lte(msg):
         print("LTE not connected")
 
 def thread_send_lora(msg, s_lora):
-    if lora.has_joined():
-        s_lora.send(msg)
-        print ("Message sent on lora")
-    else:
-        print("Lora not connected")
+    while True:
+        if lora.has_joined():
+            try:
+                time.sleep(2)
+                s_lora.send(msg)
+#                print ("Message sent on lora")
+            except OSError as e:
+                if e.args[0] == 11:
+       # EAGAIN error occurred, add your retry logic here
+                    time.sleep(2)
+                    s_lora.send(msg)
+                    print ("Message sent on lora")
+        else:
+            print("Lora not connected")
 
 def thread_send_sigfox(msg, s_sigfox):
     # Send only important data on SigFox (12bytes)
+    while True:
+        s_sigfox.send(msg)
+        print("Data sent of Sigfox")
     if len(msg) > 12:
         # Assuming data is currently epochtime:cputime like 1594329236:66.705 which is 17 bytes.
         #Removing last two digit of epochtime (replace it with 00 at the server and removing : and . we make it to 12 bytes)
@@ -300,7 +318,12 @@ def main():
     s_sigfox = connect_sigfox()
 #    connect_uart(s_lora, s_sigfox)
     args_tuple = [s_lora, s_sigfox]
-    _thread.start_new_thread(connect_uart, args_tuple)
+    if wlan.isconnected():
+        print("WiFi is connected")
+    else:
+        connect_wifi(WIFI_SSID, WIFI_PASS)
+
+    _thread.start_new_thread(connect_uart2, args_tuple)
     print("Everything is a thread")
 
 
