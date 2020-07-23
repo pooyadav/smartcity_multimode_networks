@@ -264,7 +264,7 @@ def server_once():
         print(results)
 
     # Send our results
-    results = { 
+    results = {
         'cpu_util_total': 1,
         'cpu_util_user': 0.5,
         'cpu_util_system': 0.5,
@@ -282,7 +282,7 @@ def server_once():
         }]
     }
     results = json.dumps(results)
-    s_ctrl.sendall(struct.pack('>I', len(results))) 
+    s_ctrl.sendall(struct.pack('>I', len(results)))
     s_ctrl.sendall(bytes(results, 'ascii'))
 
     # Ask to display results
@@ -408,7 +408,7 @@ def client(host, udp=False, reverse=False, bandwidth=10*1024*1024):
                         stats.start()
                 elif cmd == PARAM_EXCHANGE:
                     param_j = json.dumps(param)
-                    s_ctrl.sendall(struct.pack('>I', len(param_j))) 
+                    s_ctrl.sendall(struct.pack('>I', len(param_j)))
                     s_ctrl.sendall(bytes(param_j, 'ascii'))
                 elif cmd == CREATE_STREAMS:
                     if udp:
@@ -444,7 +444,7 @@ def client(host, udp=False, reverse=False, bandwidth=10*1024*1024):
                         }]
                     }
                     results = json.dumps(results)
-                    s_ctrl.sendall(struct.pack('>I', len(results))) 
+                    s_ctrl.sendall(struct.pack('>I', len(results)))
                     s_ctrl.sendall(bytes(results, 'ascii'))
 
                     n = struct.unpack('>I', recvn(s_ctrl, 4))[0]

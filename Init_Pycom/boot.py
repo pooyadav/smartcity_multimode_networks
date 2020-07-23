@@ -77,16 +77,16 @@ def connect_lora_otaa():
         i = i + 1
         time.sleep(2.5)
         print('Not yet joined...')
-        if i == 5:
+        if i == 20:
             print("Gave up on Lora; Network signal not strong")
             return None
 
     print("Finally Joined")
 
 # Print Stats
-    print("Lora.bandwidth is " + lora.Bandwidth())
-    print("Lora.sf is " + lora.sf())
-    print("lora.coding_rate is " + lora.coding_rate())
+    print("Lora.bandwidth is " + str(lora.bandwidth()))
+    print("Lora.sf is " + str(lora.sf()))
+    print("lora.coding_rate is " + str(lora.coding_rate()))
 # create a LoRa socket
     sock_lora = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
 
@@ -245,12 +245,13 @@ def check_connection_thread(msg, s_lora, s_sigfox):
 #       if connected great! If not check if nb-iot, lora, sigfox
     print ("Hello World")
     args_tuple = [msg]
-    _thread.start_new_thread(thread_send_wifi, args_tuple)
+#    _thread.start_new_thread(thread_send_wifi, args_tuple)
 #    _thread.start_new_thread(thread_send_lte, args_tuple)
+    s_lora.send("HelloWorld")
     args_tuple = [msg, s_lora]
     _thread.start_new_thread(thread_send_lora, args_tuple)
     args_tuple = [msg, s_sigfox]
-    _thread.start_new_thread(thread_send_sigfox, args_tuple)
+#    _thread.start_new_thread(thread_send_sigfox, args_tuple)
     print("Bye World")
 
 
@@ -268,7 +269,7 @@ def thread_send_lte(msg):
 
 def thread_send_lora(msg, s_lora):
     if lora.has_joined():
-        s_lora.send()
+        s_lora.send(msg)
         print ("Message sent on lora")
     else:
         print("Lora not connected")
@@ -295,6 +296,7 @@ def main():
     """ Main function currently make calls to connect all networks and UART """
     connect_wifi(WIFI_SSID, WIFI_PASS)
     s_lora = connect_lora_otaa()
+
     s_sigfox = connect_sigfox()
 #    connect_uart(s_lora, s_sigfox)
     args_tuple = [s_lora, s_sigfox]

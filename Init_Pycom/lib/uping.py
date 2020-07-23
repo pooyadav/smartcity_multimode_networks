@@ -19,7 +19,7 @@ def checksum(data):
     cs = ~cs & 0xffff
     return cs
 
-def ping(host, count=4, timeout=5000, interval=500, quiet=False, size=64):
+def ping(host, count=100, timeout=5000, interval=500, quiet=False, size=64):
     import utime
     import uselect
     import uctypes
