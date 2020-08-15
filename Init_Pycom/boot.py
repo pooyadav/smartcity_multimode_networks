@@ -3,14 +3,15 @@ import time
 import utime
 import socket
 import machine
+import uping
 rtc = machine.RTC()
 result3 = ""
-
+lte = LTE()
 
 #now we can safely machine.deepsleep()
 def connect_lte():
     global result3
-#    lte = LTE()
+
 
     start_resettime = time.time()
 #    lte.reset()
@@ -49,11 +50,11 @@ def connect_lte():
     #result = socket.getaddrinfo('pycom.io', 80)
 
     start_disconnecttime=time.time()
-    lte.disconnect()
+#    lte.disconnect()
     stop_disconnectime=time.time()
 
     start_deinittime=time.time()
-    lte.deinit()
+#    lte.deinit()
     stop_deinittime=time.time()
 
     time_lteinit = stop_inittime - start_inittime
@@ -69,11 +70,8 @@ def connect_lte():
 
 def main():
     """ Main function currently make calls to connect all networks and UART """
-
-    i = 0
-    while i < 25:
-        connect_lte()
-        i=i+1
+    connect_lte()
+#    uping.ping('10.200.0.1')
 
 if __name__ == "__main__":
     main()

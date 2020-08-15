@@ -1,3 +1,3 @@
-Exp03: NB-IoT
+Exp04: NB-IoT Latency
 
-- To understand LTE init, deinit, connect, disconnect, attach, deattach timings
+- To understand NB-IoT Latency, send ping to the gateway
