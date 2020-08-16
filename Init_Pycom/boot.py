@@ -58,12 +58,16 @@ def connect_sigfox():
     """ Connect to SigFox and return sigfox and socket"""
 
 # Create a Sigfox socket
+    sock_start = time.time()
     sock_sigfox = socket.socket(socket.AF_SIGFOX, socket.SOCK_RAW)
-    print("Hello3")
+#    print("Hello3")
 # make the socket blocking
     sock_sigfox.setblocking(True)
 # Configure it as uplink
     sock_sigfox.setsockopt(socket.SOL_SIGFOX, socket.SO_RX, False)
+    sock_stop = time.time()
+    sock_time = sock_stop - sock_start
+    print ("Sigfox_Socket:" + str(sock_time))
 # send some data
 #    sock_sigfox.send("Hello SigFox")
 #    print("Message sent on Sigfox")
@@ -84,7 +88,7 @@ def main():
         msg = "A" * x
         print("{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(*time.localtime()[:6]),end = '')
         start = time.time()
-        s_sigfox.send(msg)
+#        s_sigfox.send(msg)
         stop = time.time()
         time_taken = stop - start
         print(",MSize:" + str(len(msg)) + ",Time:" + str(time_taken) + ",RB:")
