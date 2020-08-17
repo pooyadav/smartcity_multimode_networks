@@ -52,6 +52,10 @@ def connect_lte():
     lte.disconnect()
     stop_disconnectime=time.time()
 
+    start_detach = time.time()
+    lte.detach()
+    stop_detach = time.time()
+
     start_deinittime=time.time()
     lte.deinit()
     stop_deinittime=time.time()
@@ -60,10 +64,11 @@ def connect_lte():
     time_lteattach = stop_attachtime - start_attachtime
     time_lteconnect = stop_connecttime - start_connecttime
     time_ltedisconnect = stop_disconnectime - start_disconnecttime
+    time_ltedetach = stop_detach - start_detach
     time_ltedeinit = stop_deinittime - start_deinittime
     time_ltereset = stop_resettime - start_resettime
 
-    result2 = ("\nCurrent Time:" + str(utime.time()) + ",LTE_Reset:" + str(time_ltereset) + ",LTE_Init:" + str(time_lteinit) + ",LTE_Attach:" + str(time_lteattach) + ",LTE_Connect:" + str(time_lteconnect) + ",LTE_Disconnect:" + str(time_ltedisconnect) + ",LTE DeInit: " + str(time_ltedeinit))
+    result2 = ("\nCurrent Time:" + str(utime.time()) + ",LTE_Reset:" + str(time_ltereset) + ",LTE_Init:" + str(time_lteinit) + ",LTE_Attach:" + str(time_lteattach) + ",LTE_Connect:" + str(time_lteconnect) + ",LTE_Disconnect:" + str(time_ltedisconnect) + ",LTE Detach: " + str(time_ltedetach) + ",LTE DeInit: " + str(time_ltedeinit))
     print (result2 )
     result3 = result3 + result2
 
@@ -71,7 +76,7 @@ def main():
     """ Main function currently make calls to connect all networks and UART """
 
     i = 0
-    while i < 25:
+    while i < 51:
         connect_lte()
         i=i+1
 
