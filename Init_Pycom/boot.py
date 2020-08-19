@@ -21,7 +21,7 @@ WIFI_PASS = "9XGDxfLnPvEq"
 # Lora OTAA Key
 # create an OTAA authentication parameters
 APP_EUI = ubinascii.unhexlify('70B3D57ED0030B7E')
-APP_KEY = ubinascii.unhexlify('02BEBE90D3FF4C1C26EBD71DDA585214')
+APP_KEY = ubinascii.unhexlify('F7C66D9A0DEED29286E2FE328B0BB215')
 
 
 #The code is taken from https://docs.pycom.io/chapter/tutorials/all/wlan.html.
@@ -56,7 +56,7 @@ def connect_lora_otaa():
     """ Connect to LoRa and return lora and socket via OTAA auth method"""
     msg = "A"*51
     join_lora_start=time.time()
-    lora.join(activation=LoRa.OTAA, auth=(APP_EUI, APP_KEY), timeout=0)
+    lora.join(activation=LoRa.OTAA, auth=(APP_EUI, APP_KEY), timeout=0,dr=1)
 
     # wait until the module has joined the network
     i = 1
@@ -76,7 +76,7 @@ def connect_lora_otaa():
     sock_lora_start=time.time()
     sock_lora = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
 # set the LoRaWAN data rate
-    sock_lora.setsockopt(socket.SOL_LORA, socket.SO_DR, 0)
+    sock_lora.setsockopt(socket.SOL_LORA, socket.SO_DR, 1)
 # make the socket blocking
 # (waits for the data to be sent and for the 2 receive windows to expire)
     sock_lora.setblocking(True)
@@ -95,7 +95,7 @@ def connect_lora_otaa():
 
     print("{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(*time.localtime()[:6]),end = '')
     send_starttime = time.time()
-    sock_lora.send(msg)
+#    sock_lora.send(msg)
     send_stoptime = time.time()
     send_time = send_stoptime - send_starttime
     print(",InitTime:" + str(init_time) +",JoinTime:"+str(join_time)+",sock_time:" + str(sock_time)+",send_Time:"+str(send_time))
@@ -114,8 +114,9 @@ def main():
     rtc.ntp_sync("pool.ntp.org")
     rtc.ntp_sync("pool.ntp.org")
     s_lora = connect_lora_otaa()
-#    for i in range(1,26):
-#        connect_lora_otaa()
+    for i in range(1,11):
+        connect_lora_otaa()
+        time.sleep(5)
 
 
 if __name__ == "__main__":
