@@ -19,6 +19,9 @@ class Network:
     def get_bandwidth(self):
         return self.bandwidth
 
+    def get_name(self):
+        return self.name
+
     def set_bandwidth(bandwidth):
         self.bandwidth = bandwidth
 
@@ -27,19 +30,3 @@ class Network:
     
     def set_available(self, available):
         self.available = available
-
-def main():
-    network1 = Network("Wi-Fi", True, 80, -1, -1)
-    network2 = Network("LoRa", True, 11, 221, 45)
-    
-    list_net = []
-    list_net.append(network1)
-    list_net.append(network2)
-
-    for obj in list_net:
-        print(obj.name)
-
-
-if __name__ == '__main__':
-    main()
-
