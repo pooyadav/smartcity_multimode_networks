@@ -1,5 +1,3 @@
-from msgflow import MessageFlow
-from network import Network
 class Allocation:
 
 
@@ -24,7 +22,7 @@ class Allocation:
 
 def main():
 
-    
+
     flow1 = MessageFlow("1.Hello", 2, 20, 0.02)
     network1 = Network("Wi-Fi", True, 80, -1, -1)
 

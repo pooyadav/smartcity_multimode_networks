@@ -13,6 +13,9 @@ import socket
 import pycom
 import _thread
 import machine
+from msgflow import MessageFlow
+from network_Algo import Network
+from allocation import Allocation
 rtc = machine.RTC()
 
 
@@ -116,7 +119,12 @@ def main():
     rtc.ntp_sync("pool.ntp.org")
     rtc.ntp_sync("pool.ntp.org")
     rtc.ntp_sync("pool.ntp.org")
-    s_lora = connect_lora_otaa()
+    #s_lora = connect_lora_otaa()
+    flow1 = MessageFlow("1.Hello", 2, 20, 0.02)
+    network1 = Network("Wi-Fi", True, 80, -1, -1)
+
+    all1 = Allocation(flow1, network1, 0)
+    all1.to_string()
 
 if __name__ == "__main__":
     main()
