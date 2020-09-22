@@ -1,4 +1,5 @@
 """ Function definition for connecting different networks"""
+import utime
 import time
 import machine
 import urequests as requests
@@ -28,7 +29,7 @@ APP_KEY = ubinascii.unhexlify('F7C66D9A0DEED29286E2FE328B0BB215')
 wlan = WLAN(mode=WLAN.STA)
 
 init_lora_start=time.time()
-lora = LoRa(mode=LoRa.LORAWAN, region=LoRa.EU868,tx_power=14, sf=12)
+lora = LoRa(mode=LoRa.LORAWAN, region=LoRa.EU868,tx_power=14)
 init_lora_stop=time.time()
 
 # A function has been defined to be called in the main file to make it shorter
@@ -56,7 +57,7 @@ def connect_lora_otaa():
     """ Connect to LoRa and return lora and socket via OTAA auth method"""
     msg = "A"*51
     join_lora_start=time.time()
-    lora.join(activation=LoRa.OTAA, auth=(APP_EUI, APP_KEY), timeout=0,dr=1)
+    lora.join(activation=LoRa.OTAA, auth=(APP_EUI, APP_KEY), timeout=0)
 
     # wait until the module has joined the network
     i = 1
@@ -71,12 +72,12 @@ def connect_lora_otaa():
     print("Finally Joined")
 
 # Print Stats
-    print("Lora.bandwidth:" + str(lora.bandwidth()) + ",Lora.sf:" + str(lora.sf()) + ",lora.coding_rate:" + str(lora.coding_rate()))
+#    print("Lora.bandwidth:" + str(lora.bandwidth()) + ",Lora.sf:" + str(lora.sf()) + ",lora.coding_rate:" + str(lora.coding_rate()))
 # create a LoRa socket
     sock_lora_start=time.time()
     sock_lora = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
 # set the LoRaWAN data rate
-    sock_lora.setsockopt(socket.SOL_LORA, socket.SO_DR, 1)
+    sock_lora.setsockopt(socket.SOL_LORA, socket.SO_DR,0)
 # make the socket blocking
 # (waits for the data to be sent and for the 2 receive windows to expire)
     sock_lora.setblocking(True)
@@ -86,19 +87,21 @@ def connect_lora_otaa():
 # (because if there's no data received it will block forever...)
     sock_lora.setblocking(False)
     sock_lora_stop=time.time()
+    print("Lora.bandwidth:" + str(lora.bandwidth()) + ",Lora.sf:" + str(lora.sf()) + ",lora.coding_rate:" + str(lora.coding_rate()))
     init_time = init_lora_stop - init_lora_start
     join_time = join_lora_stop - join_lora_start
     sock_time = sock_lora_stop - sock_lora_start
 
 
 
-
-    print("{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(*time.localtime()[:6]),end = '')
-    send_starttime = time.time()
-#    sock_lora.send(msg)
-    send_stoptime = time.time()
-    send_time = send_stoptime - send_starttime
-    print(",InitTime:" + str(init_time) +",JoinTime:"+str(join_time)+",sock_time:" + str(sock_time)+",send_Time:"+str(send_time))
+    for i in range(1,11):
+        print("{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(*time.localtime()[:6]),end = '')
+        send_starttime = utime.ticks_us()
+        sock_lora.send(msg)
+        send_stoptime = utime.ticks_us()
+        send_time = send_stoptime - send_starttime
+        print(",InitTime:" + str(init_time) +",JoinTime:"+str(join_time)+",sock_time:" + str(sock_time)+",send_Time:"+str(send_time))
+        time.sleep(10)
 # get any data received (if any...)
     data = sock_lora.recv(64)
 
@@ -114,10 +117,6 @@ def main():
     rtc.ntp_sync("pool.ntp.org")
     rtc.ntp_sync("pool.ntp.org")
     s_lora = connect_lora_otaa()
-    for i in range(1,11):
-        connect_lora_otaa()
-        time.sleep(5)
-
 
 if __name__ == "__main__":
     main()
