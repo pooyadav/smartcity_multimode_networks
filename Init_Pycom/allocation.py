@@ -6,11 +6,11 @@ class Allocation:
         self.net = net
         self.crit_level = crit_level
 
-    def get_flow():
-        return self.msg_flow
+    def get_flow(self):
+        return self.flow
 
-    def get_network():
-        return self.network
+    def get_network(self):
+        return self.net
 
     def get_crit_level(self):
         return self.crit_level
