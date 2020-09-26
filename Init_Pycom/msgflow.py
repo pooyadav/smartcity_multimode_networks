@@ -57,3 +57,6 @@ class MessageFlow:
         print(self.period)
 #        print(self.privacy)
         print(self.crit_levels)
+
+    def get_bandwidth_utilisation(crit_level):
+        return get_payload(crit_level)/get_period(crit_level)
