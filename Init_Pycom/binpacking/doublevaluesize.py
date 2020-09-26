@@ -2,7 +2,7 @@ class DoubleValueSize:
     def __init__(self, value):
         self.value = value
 
-    def compare_to(other):
+    def compare_to(self,other):
         """ Compares this DoubleValueSize's double value against another's double value 
         @return -1 if this double value is smaller than other's double value
                  1 if this double value is larger than other's double value

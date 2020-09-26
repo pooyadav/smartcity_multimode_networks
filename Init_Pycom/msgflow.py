@@ -50,6 +50,20 @@ class MessageFlow:
         """ Return bandwidth required for a given Criticality level """
         return self.get_payload(crit_level)/self.get_period(crit_level)
 
+    def get_highest_criticality(self):
+        """ Return the highest criticality defined in msgflow """
+        for i in range(len(self.crit_levels), 1, -1):
+            if self.crit_levels[i-1]:
+                return i - 1
+        return -1
+
+    def get_lowest_criticality(self):
+        """ Return the lowest criticality defined in msgflow """
+        for i in range(0, len(self.crit_levels), 1):
+            if self.crit_levels[i]:
+                return i
+        return -1
+
     def print_all_msgflows(self):
         """ Print all the msgflows """
         print(self.name)

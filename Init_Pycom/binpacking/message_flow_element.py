@@ -42,4 +42,4 @@ class MessageFlowElement:
 
     def to_string(self):
         """ ???? """
-        return self.msgflow.get_name() + " " + "super"
+        return self.msgflow.get_name() + " with criticality level " + str(self.allocated_crit_level) 
