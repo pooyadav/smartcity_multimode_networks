@@ -52,7 +52,7 @@ class MessageFlow:
 
     def get_highest_criticality(self):
         """ Return the highest criticality defined in msgflow """
-        for i in range(len(self.crit_levels), 1, -1):
+        for i in range(len(self.crit_levels), 0, -1):
             if self.crit_levels[i-1]:
                 return i - 1
         return -1
@@ -74,7 +74,10 @@ class MessageFlow:
 
     def get_bandwidth_utilisation(self, crit_level):
         """ Return bandwidth utilisation """
-        return self.get_payload(crit_level)/self.get_period(crit_level)
+        payload = self.get_payload(crit_level)
+        period = self.get_period(crit_level)
+        bandwidth_util = float(payload)/float(period)
+        return bandwidth_util
 
     def has_criticality(self, i):
         """ Return whether a particular criticality level has been set """

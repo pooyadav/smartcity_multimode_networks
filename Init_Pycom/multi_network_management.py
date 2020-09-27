@@ -64,6 +64,7 @@ class multi_network_management():
         self.list_msgflows.append(msgflow)
 
         if self.highest:
+            print(msgflow.get_name() + str(msgflow.get_highest_criticality()))
             mfe = MessageFlowElement(msgflow, msgflow.get_highest_criticality())
             self.list_elements.append(mfe)
         else:
@@ -96,7 +97,6 @@ class multi_network_management():
         
         for i in range(len(self.list_criticalities), 0, -1):
             list_allocated = self.get_all_allocated_elements()
-            print(list_allocated)
             self.sort_mfe_by_bandwidth_utilisation(list_allocated, not self.decreasing)
 
     def populate_criticality_lists(self):
@@ -127,40 +127,60 @@ class multi_network_management():
         return allocated_elements
 
     def sort_mfe_by_bandwidth_utilisation(self, list_sort, ascending):
-        list_sort.sort(ascending, key=self.myfunc)
+        list_sort.sort(reverse=True,key=self.myfunc)
+        print("Sorted List:")
+        for j in list_sort:
+            print(j.to_string())
 
     def myfunc(self, mfe):
-        return mfe.get_size()
+	temp = mfe.get_size()
+	temp2 = temp.get_value()
+        return temp2
 
 
 
 def main():
     """ Testing """
     # Critical level
-    flow1 = MessageFlow("1.Flow", 0, 1000, 0.02)
-    flow1.set_crit_level(1, 200, 0.01)
-    flow1.set_crit_level(2, 100, 0.01)
-    flow1.set_crit_level(3, 10, 0.01)
+    falld = MessageFlow("Fall Detection", 0, 1000, 10)
+    falld.set_crit_level(1, 40, 20)
+    falld.set_crit_level(2, 10, 60)
 
-    flow2 = MessageFlow("2.Flow", 0, 500, 0.02)
-    flow2.set_crit_level(1, 10, 0.02)
-    flow2.set_crit_level(2, 10, 0.05)
-    flow2.set_crit_level(3, 10, 0.1)
+    healthm = MessageFlow("Health Monitoring", 0, 1000, 5)
+    healthm.set_crit_level(1, 80, 10)
+    healthm.set_crit_level(2, 10, 20)
 
-    flow3 = MessageFlow("3.Flow", 0, 500, 0.02)
-    flow3.set_crit_level(1, 10, 0.02)
+    bodyt = MessageFlow("Body Temperature", 0, 30, 30)
+    bodyt.set_crit_level(1, 10, 120)
 
-    flow4 = MessageFlow("4.Flow", 5, 500, 0.02)
+    bedsens = MessageFlow("Bedroom Sensor", 0, 40000, 10)
+    bedsens.set_crit_level(1, 10, 30)
+
+    bathsens = MessageFlow("Bathroom Sensor", 0, 80, 10)
+    bathsens.set_crit_level(1, 10, 30)
+    
+    kitsens = MessageFlow("Kitchen Sensor", 0, 40000, 10)
+    kitsens.set_crit_level(1, 10, 30)
+
+    frontsens = MessageFlow("Front Door Sensor", 0, 40000, 10)
+    frontsens.set_crit_level(1, 10, 30)
+
+    enermon = MessageFlow("Energy Usage", 0, 40, 3600)
+
     # Let's say network 1 has 8000 bps bandwidth
-    network1 = Network("Wi-Fi", True, 8000, -1, -1)
-    network2 = Network("SigFox", True, 100, 12, 144)
-    network3 = Network("LTE-M", True, 10000, 12, 144)
-    network4 = Network("LoRaWAN", True, 11000, 12, 144)
+    network1 = Network("Wi-Fi", True, 80, -1, -1)
+    network2 = Network("SigFox", True, 10, 12, 144)
+    network3 = Network("LTE-M", True, 10, 12, 144)
+    network4 = Network("LoRaWAN", True, 220, 222, 144)
     mnm = multi_network_management()
-    mnm.add_msgflow(flow1)
-    mnm.add_msgflow(flow2)
-    mnm.add_msgflow(flow3)
-    mnm.add_msgflow(flow4)
+    mnm.add_msgflow(falld)
+    mnm.add_msgflow(healthm)
+    mnm.add_msgflow(bodyt)
+    mnm.add_msgflow(bedsens)
+    mnm.add_msgflow(bathsens)
+    mnm.add_msgflow(kitsens)
+    mnm.add_msgflow(frontsens)
+    mnm.add_msgflow(enermon)
     mnm.add_network(network1)
     mnm.add_network(network2)
     mnm.add_network(network3)
@@ -168,8 +188,20 @@ def main():
     bin_t1 = mnm.list_bins[0]
     mfe_t1 = mnm.list_elements[0]
     mfe_t2 = mnm.list_elements[1]
+    mfe_t3 = mnm.list_elements[2]
+    mfe_t4 = mnm.list_elements[3]
+    mfe_t5 = mnm.list_elements[4]
+    mfe_t6 = mnm.list_elements[5]
+    mfe_t7 = mnm.list_elements[6]
+    mfe_t8 = mnm.list_elements[7]
     bin_t1.add_element(mfe_t1)
     bin_t1.add_element(mfe_t2)
+    bin_t1.add_element(mfe_t3)
+    bin_t1.add_element(mfe_t4)
+    bin_t1.add_element(mfe_t5)
+    bin_t1.add_element(mfe_t6)
+    bin_t1.add_element(mfe_t7)
+    bin_t1.add_element(mfe_t8)
 
     mnm.perform_inverted_allocation()
 
