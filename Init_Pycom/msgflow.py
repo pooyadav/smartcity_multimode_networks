@@ -72,5 +72,10 @@ class MessageFlow:
 #        print(self.privacy)
         print(self.crit_levels)
 
-    def get_bandwidth_utilisation(crit_level):
-        return get_payload(crit_level)/get_period(crit_level)
+    def get_bandwidth_utilisation(self, crit_level):
+        """ Return bandwidth utilisation """
+        return self.get_payload(crit_level)/self.get_period(crit_level)
+
+    def has_criticality(self, i):
+        """ Return whether a particular criticality level has been set """
+        return self.crit_levels[i]

@@ -18,10 +18,17 @@ class NetworkBin:
         """ Add a element (msgflow) to the allocated list of network """
         if element in self.allocated:
             is_duplicate = True
+        else:
+            is_duplicate = False
+        
+        # Check if element is already allocated to the Network Bin
         if is_duplicate:
             error_msg = "Network Bin " + str(self.get_id()) + " already contains the element " + str(element.get_id())
             raise DuplicateElementException(error_msg)
-        if element.fits_into(self.get_free_space()) is None:
+        current_bin_free_space = self.get_free_space()
+        
+        # Check if the Network Bin has enough free space for the element
+        if element.fits_into(DoubleValueSize(current_bin_free_space)) is None:
             error_msg = "Network Bin " + str(self.get_id()) + " is full. Can't add the element " + str(element.get_id())
             raise BinFullException(error_msg)
         else:
@@ -53,7 +60,9 @@ class NetworkBin:
 
     def get_free_space(self):
         """ Return the free space in the Network Bin """
-        return self.get_capacity().subtract(self.get_allocated_size())
+        current_bin_capacity = self.get_capacity()
+        current_bin_allocated_size = self.get_allocated_size()
+        return current_bin_capacity.subtract(current_bin_allocated_size)
 
     def get_id(self):
         """ Return the network bin name """
@@ -62,10 +71,9 @@ class NetworkBin:
     def get_allocated_size(self):
         """ Return the current allocated size of the Network Bin """
         usage = DoubleValueSize(0.0)
-
         for element in self.allocated:
-            usage = usage.add(element.get_size())
-
+            usage = DoubleValueSize(usage.add(element.get_size()))
+        
         return usage
 
     def print_allocated(self):

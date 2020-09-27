@@ -22,10 +22,13 @@ class DoubleValueSize:
         return str(self.value)
 
     def add(self, other):
-        return self.value + other.get_value()
+        other_value = other.get_value()
+        result_sum = self.value + other_value
+        return result_sum
 
-    def subtract(self,other):
-        return self.value - other.get_value()
+    def subtract(self, other):
+        other_value = other.get_value()
+        return self.value - other_value
 
     def calculate_percentage(self, other):
         return other.get_value()/self.value

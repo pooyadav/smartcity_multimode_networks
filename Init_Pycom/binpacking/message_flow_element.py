@@ -30,7 +30,8 @@ class MessageFlowElement:
 
     def get_size(self):
         """ Return the size of the MsgFlow """
-        return DoubleValueSize(self.msgflow.get_bandwidth_utilisation(self.allocated_crit_level))
+        mfe_bandwidth_utilisation = self.msgflow.get_bandwidth_utilisation(self.allocated_crit_level)
+        return DoubleValueSize(mfe_bandwidth_utilisation)
 
     def get_allocated_crit_level(self):
         """ Return the allocated criticality level """
