@@ -2,7 +2,7 @@
 # Path hack.
 import sys
 import os
-from doublevaluesize import DoubleValueSize
+from binpacking.doublevaluesize import DoubleValueSize
 sys.path.insert(0, os.path.abspath('..'))
 from msgflow import MessageFlow
 

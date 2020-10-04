@@ -1,9 +1,8 @@
 """ Class for implementing Network Bin, Basically tells what elements (msgflows)
     are fulfilled by this Network Bin, capacity of it """
-from exceptions.exceptions import DuplicateElementException
-from exceptions.exceptions import BinFullException
-from doublevaluesize import DoubleValueSize
-from message_flow_element import MessageFlowElement
+from binpacking.exceptions.exceptions import BinFullException, DuplicateElementException
+from binpacking.doublevaluesize import DoubleValueSize
+from binpacking.message_flow_element import MessageFlowElement
 class NetworkBin:
     """ Network Bin Class with add_element, remove_element, other functions"""
     def __init__(self, network):
@@ -24,6 +23,7 @@ class NetworkBin:
         # Check if element is already allocated to the Network Bin
         if is_duplicate:
             error_msg = "Network Bin " + str(self.get_id()) + " already contains the element " + str(element.get_id())
+            print(error_msg)
             raise DuplicateElementException(error_msg)
         current_bin_free_space = self.get_free_space()
         
