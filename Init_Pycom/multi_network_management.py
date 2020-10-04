@@ -140,8 +140,8 @@ class multi_network_management():
             self.sort_mfe_by_bandwidth_utilisation(list_allocated, not self.decreasing)
 
             # Iterating the MFE list of a certain critical level
-            iter1_loop = self.list_criticalities[i]
-            iter1_result = self.list_criticalities[i]
+            iter1_loop = list(self.list_criticalities[i])
+            iter1_result = list(self.list_criticalities[i])
 
             print("Current MFE at criticality level " + str(i))
             for k in iter1_loop:
@@ -215,7 +215,8 @@ class multi_network_management():
 
     def sort_mfe_by_bandwidth_utilisation(self, list_sort, asc_or_dsc):
         """ Sort the list of MFE by bandwidth utilisation """
-        list_sort.sort(reverse=asc_or_dsc, key=self.myfunc)
+        reverse_temp = not asc_or_dsc
+        list_sort.sort(reverse=reverse_temp, key=self.myfunc)
 #        print("Sorted List:")
 #        for j in list_sort:
 #            print(j.to_string())
