@@ -324,7 +324,7 @@ class multi_network_management():
         """ Print Unallocated MFE """
         print("Un-allocated MFE:")
         for mfe in self.list_unallocated_elements:
-            mfe.to_string()
+            print(mfe.to_string())
 
     def set_first_fit(self):
         """ Set the First fit to True """
