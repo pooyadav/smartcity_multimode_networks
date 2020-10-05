@@ -13,9 +13,9 @@ import socket
 import pycom
 import _thread
 import machine
-from msgflow import MessageFlow
-from network_Algo import Network
-from allocation import Allocation
+from mnm.multi_network_management import multi_network_management
+from mnm.msgflow import MessageFlow
+from mnm.network_algo import Network
 rtc = machine.RTC()
 
 
@@ -110,6 +110,61 @@ def connect_lora_otaa():
 
     return sock_lora
 
+def check_allocations():
+    falld = MessageFlow("Fall Detection", 0, 1000, 10)
+    falld.set_crit_level(1, 40, 20)
+    falld.set_crit_level(2, 10, 60)
+
+    healthm = MessageFlow("Heart Monitoring", 0, 1000, 5)
+    healthm.set_crit_level(1, 80, 10)
+    healthm.set_crit_level(2, 10, 20)
+
+    bodyt = MessageFlow("Body Temperature", 0, 30, 30)
+    bodyt.set_crit_level(1, 10, 120)
+
+    bedsens = MessageFlow("Bedroom Sensor", 0, 40000, 10)
+    bedsens.set_crit_level(1, 10, 30)
+
+    bathsens = MessageFlow("Bathroom Sensor", 0, 80, 10)
+    bathsens.set_crit_level(1, 10, 30)
+
+    kitsens = MessageFlow("Kitchen Sensor", 0, 40000, 10)
+    kitsens.set_crit_level(1, 10, 30)
+
+    frontsens = MessageFlow("Front Door Sensor", 0, 40000, 10)
+    frontsens.set_crit_level(1, 10, 30)
+
+    enermon = MessageFlow("Energy Usage", 0, 40, 3600)
+
+    # Let's say network 1 has 8000 bps bandwidth
+    network1 = Network("Wi-Fi", True, 8000, -1, -1)
+    network4 = Network("LoRaWAN", True, 220, 222, 144)
+    network2 = Network("SigFox", True, 6, 12, 144)
+    network3 = Network("LTE-M", True, 10, 12, 144)
+    mnm = multi_network_management()
+    mnm.add_msgflow(falld)
+    mnm.add_msgflow(healthm)
+    mnm.add_msgflow(bodyt)
+    mnm.add_msgflow(bedsens)
+    mnm.add_msgflow(bathsens)
+    mnm.add_msgflow(kitsens)
+    mnm.add_msgflow(frontsens)
+    mnm.add_msgflow(enermon)
+    mnm.add_network(network1)
+    mnm.add_network(network4)
+    mnm.add_network(network2)
+
+
+    mnm.set_decreasing(False)
+    mnm.set_best_fit()
+
+    mnm.perform_inverted_allocation()
+    mnm.print_all_allocation()
+    mnm.print_unallocated_elements()
+    print("Allocated Percentage is " + str(mnm.get_allocated_percentage()))
+    print("Average Criticality is " + str(mnm.get_avg_criticality()))
+
+
 def main():
     """ Main function currently make calls to connect all networks and UART """
     connect_wifi(WIFI_SSID, WIFI_PASS)
@@ -120,11 +175,7 @@ def main():
     rtc.ntp_sync("pool.ntp.org")
     rtc.ntp_sync("pool.ntp.org")
     #s_lora = connect_lora_otaa()
-    flow1 = MessageFlow("1.Hello", 2, 20, 0.02)
-    network1 = Network("Wi-Fi", True, 80, -1, -1)
-
-    all1 = Allocation(flow1, network1, 0)
-    all1.to_string()
+    check_allocations()
 
 if __name__ == "__main__":
     main()

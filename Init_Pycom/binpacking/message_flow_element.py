@@ -3,8 +3,7 @@
 import sys
 import os
 from binpacking.doublevaluesize import DoubleValueSize
-sys.path.insert(0, os.path.abspath('..'))
-from msgflow import MessageFlow
+from mnm.msgflow import MessageFlow
 
 class MessageFlowElement:
     """ Class MessageFlowElement to store msgflow as an Element """

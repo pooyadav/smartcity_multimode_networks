@@ -1,7 +1,7 @@
 """ Class to store a list of networks, msgflows and allocations """
-from msgflow import MessageFlow
-from network_algo import Network
-from allocation import Allocation
+from mnm.msgflow import MessageFlow
+from mnm.network_algo import Network
+from mnm.allocation import Allocation
 #from multi_network_management import multi_network_management
 from binpacking.message_flow_element import MessageFlowElement
 from binpacking.network_bin import NetworkBin
