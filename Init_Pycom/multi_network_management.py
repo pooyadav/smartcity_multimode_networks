@@ -134,7 +134,7 @@ class multi_network_management():
             list_allocated = self.get_all_allocated_elements()
             print("Allocated at criticality level " + str(i +1))
             for item in list_allocated:
-                print( str(i+1) + " " + item.get_id())
+                print(str(i+1) + " " + item.get_id())
 
             # Sort the allocated list of MFE by bandwidth utilisation
             self.sort_mfe_by_bandwidth_utilisation(list_allocated, not self.decreasing)
@@ -145,7 +145,7 @@ class multi_network_management():
 
             print("Current MFE at criticality level " + str(i))
             for k in iter1_loop:
-                print (k.get_message_flow().get_name())
+                print(k.get_message_flow().get_name())
             #for j in iter1:
             for j in iter1_loop:
                 temp_msgflow = j.get_message_flow()
@@ -178,7 +178,7 @@ class multi_network_management():
                         success = self.perform_allocation_step(mfe)
                         if not success:
                             print("Critical Error: unsuccessful rollback of criticality-aware allocation")
- 
+
         return all_success
 
         #for i in range(0, len(self.list_criticalities)):
@@ -310,12 +310,12 @@ class multi_network_management():
                     self.allocate(mfe, nb)
                     return True
 
-                except BinFullException as e:
+                except BinFullException as Error:
                     print("INFO: Network Bin is full")
                     return False
-                except DuplicateElementException as e:
+                except DuplicateElementException as Error:
                     print("INFO: Duplicate Element")
-                    print(e)
+                    print(Error)
                     return False
 
         return False
@@ -352,6 +352,23 @@ class multi_network_management():
     def set_decreasing(self, value):
         """ Set the decreasing to the value """
         self.decreasing = value
+
+    def get_allocated_percentage(self):
+        """ Return the allocated percentage """
+        total = len(self.list_msgflows)
+        allocated = len(self.list_allocations)
+        res = (allocated/total) * 100
+        return res
+
+    def get_avg_criticality(self):
+        """ Return the average criticality """
+        total_crit = 0
+        for alloc in self.list_allocations:
+            total_crit = total_crit + alloc.get_crit_level()
+        result = float(total_crit)/ float((len(self.list_allocations)))
+        return result
+
+
 
 
 def main():
@@ -407,6 +424,8 @@ def main():
     mnm.perform_inverted_allocation()
     mnm.print_all_allocation()
     mnm.print_unallocated_elements()
+    print("Allocated Percentage is " + str(mnm.get_allocated_percentage()))
+    print("Average Criticality is " + str(mnm.get_avg_criticality()))
 
 
 if __name__ == '__main__':
