@@ -117,8 +117,8 @@ uart.init(9600, bits=8, parity=None, stop=1) # init with given parameters
 
 #     return sock_lora
 def write_data_uart(msgflow_name, msgflow_crit_level, msgflow_period, msgflow_payload):
-    # Let's say we want to send five messages
-    for i in range(0, 5):
+    # Let's say we want to send two messages
+    for i in range(0, 2):
         msg_uart = msgflow_name + "," + str(msgflow_crit_level) + "," + "A" * msgflow_payload
         #print(msg_uart)
         uart.write(msg_uart)
@@ -143,6 +143,7 @@ def generate_random_data(mnm):
         msgflow_crit_level = rand_crit_level
         #print(msgflow_name, msgflow_period, msgflow_payload)
         args_tuple = [msgflow_name, msgflow_crit_level, msgflow_period, msgflow_payload]
+        # Start a new thread to send the message
         _thread.start_new_thread(write_data_uart, args_tuple)
         #write_data_uart(msgflow_name, msgflow_period, msgflow_payload)
 

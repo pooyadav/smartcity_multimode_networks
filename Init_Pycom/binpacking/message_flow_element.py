@@ -1,9 +1,8 @@
 """ MessageFlow Element is just an element which can be assigned to Network Bin"""
-# Path hack.
-import sys
-import os
-from binpacking.doublevaluesize import DoubleValueSize
+#from binpacking.doublevaluesize import DoubleValueSize
 from mnm.msgflow import MessageFlow
+from .doublevaluesize import DoubleValueSize
+
 
 class MessageFlowElement:
     """ Class MessageFlowElement to store msgflow as an Element """
