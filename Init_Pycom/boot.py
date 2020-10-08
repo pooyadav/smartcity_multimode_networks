@@ -1,7 +1,9 @@
 """ Function definition for connecting different networks"""
-import random
+#import urandom
+import os
+import sys
 # import utime
-# import time
+import time
 # import machine
 # import urequests as requests
 # from network import WLAN
@@ -12,12 +14,16 @@ import random
 # import struct
 # import socket
 # import pycom
-# import _thread
+import _thread
 # import machine
+from machine import UART
 from mnm.multi_network_management import multi_network_management
 from mnm.msgflow import MessageFlow
 from mnm.network_algo import Network
 #rtc = machine.RTC()
+uart = UART(1, 9600)                         # init with given baudrate
+uart.init(9600, bits=8, parity=None, stop=1) # init with given parameters
+
 
 
 # # Wifi_Creds
@@ -110,10 +116,37 @@ from mnm.network_algo import Network
 #     data = sock_lora.recv(64)
 
 #     return sock_lora
+def write_data_uart(msgflow_name, msgflow_crit_level, msgflow_period, msgflow_payload):
+    # Let's say we want to send five messages
+    for i in range(0, 5):
+        msg_uart = msgflow_name + "," + str(msgflow_crit_level) + "," + "A" * msgflow_payload
+        #print(msg_uart)
+        uart.write(msg_uart)
+        print("Message written, sleeping")
+        time.sleep(msgflow_period)
+
 
 def generate_random_data(mnm):
-    for i in mnm.list_msgflows:
-        print(random.randint(0, i.num_crit_level -1))
+    # Reading all the message flows
+    for msgflow in mnm.list_msgflows:
+        # Reading number of crit_levels in the Message Flow i.num_crit_level
+        # Selecting a random crit_level, this may or may not be defined
+        rand_crit_level = (int.from_bytes(os.urandom(1), sys.byteorder)) % (msgflow.num_crit_level - 1)
+        # Try to get the MsgFlow which has a certain criticality defined
+        while not msgflow.has_criticality(rand_crit_level):
+            rand_crit_level = (int.from_bytes(os.urandom(1), sys.byteorder)) % (msgflow.num_crit_level - 1)
+            # print("I am inside")
+            # print(rand_crit_level)
+        msgflow_name = msgflow.get_name()
+        msgflow_payload = msgflow.get_payload(rand_crit_level)
+        msgflow_period = msgflow.get_period(rand_crit_level)
+        msgflow_crit_level = rand_crit_level
+        #print(msgflow_name, msgflow_period, msgflow_payload)
+        args_tuple = [msgflow_name, msgflow_crit_level, msgflow_period, msgflow_payload]
+        _thread.start_new_thread(write_data_uart, args_tuple)
+        #write_data_uart(msgflow_name, msgflow_period, msgflow_payload)
+
+
 
 
 def check_allocations():
