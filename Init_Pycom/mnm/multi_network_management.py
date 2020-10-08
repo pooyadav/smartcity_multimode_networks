@@ -370,6 +370,7 @@ class multi_network_management():
 
     def get_network_bin(self, msgflow_name, msgflow_crit_level):
         for item in self.list_allocations:
+            print("Testing " + msgflow_name + " with " + str(msgflow_crit_level) + " against " + item.flow.get_name() + " " + str(item.get_crit_level()))
             if item.flow.get_name() == msgflow_name and item.get_crit_level() == msgflow_crit_level:
                 return item.net.get_name()
         # If not found, probably the msg flow is not allocated.
