@@ -368,6 +368,12 @@ class multi_network_management():
         result = float(total_crit)/ float((len(self.list_allocations)))
         return result
 
+    def get_network_bin(self, msgflow_name, msgflow_crit_level):
+        for item in self.list_allocations:
+            if item.flow.get_name() == msgflow_name and item.get_crit_level() == msgflow_crit_level:
+                return item.net.get_name()
+        # If not found, probably the msg flow is not allocated.
+        return None
 
 
 
@@ -426,6 +432,7 @@ def main():
     mnm.print_unallocated_elements()
     print("Allocated Percentage is " + str(mnm.get_allocated_percentage()))
     print("Average Criticality is " + str(mnm.get_avg_criticality()))
+    print(get_network_bin("Energy Usage", 0))
 
 
 if __name__ == '__main__':
