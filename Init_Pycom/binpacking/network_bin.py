@@ -37,6 +37,10 @@ class NetworkBin:
         """ Remove a element (msgflow) from the allocated list of network """
         self.allocated.remove(element)
 
+    def remove_all_elements(self):
+        """ Remove all elements (msgflow) from the allocated list of network """
+        self.allocated.clear()
+
     def contains(self, element):
         """ Check whether a element is already allocated """
         return element in self.allocated

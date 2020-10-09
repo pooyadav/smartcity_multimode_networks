@@ -386,6 +386,38 @@ def check_allocations():
     print("Allocated Percentage is " + str(mnm.get_allocated_percentage()))
     print("Average Criticality is " + str(mnm.get_avg_criticality()))
 
+def test_reallocation():
+
+    print("Setting the WiFi bandwidth to 0")
+    print(mnm.list_elements)
+    mnm.list_bins[0].get_network().set_bandwidth(0)
+    # Remove all the allocations
+    mnm.list_allocations.clear()
+    # CLear the list of criticalities
+    mnm.list_criticalities.clear()
+    # Redefine the list of criticalities
+    mnm.list_criticalities = [None] * mnm.num_crit_levels
+    # Redefine the list_criticalities as list
+    for i in range(0, mnm.num_crit_levels):
+        mnm.list_criticalities[i] = []
+    # We further have to remove all the elements from the bins!
+    for j in range(0, len(mnm.list_bins)):
+        ele = mnm.list_bins[j].remove_all_elements()
+        # print("Elements in Bin " + mnm.list_bins[j].get_id())
+        # print(ele)
+        # for item in ele:
+        #     mnm.list_bins[j].remove_element(item)
+    for j in range(0, len(mnm.list_bins)):
+        ele = mnm.list_bins[j].get_elements()
+        print("After Removing Elements in Bin " + mnm.list_bins[j].get_id())
+        print(ele)
+    print(mnm.list_elements)
+    mnm.perform_inverted_allocation()
+    mnm.print_all_allocation()
+    mnm.print_unallocated_elements()
+    print("Allocated Percentage is " + str(mnm.get_allocated_percentage()))
+    print("Average Criticality is " + str(mnm.get_avg_criticality()))
+
 
 
 def main():
@@ -411,6 +443,8 @@ def main():
     else:
         print("Wi-Fi got disconnected")
     print("Everything is a thread")
+    # Testing the reallocation by setting Wi-Fi to zero.
+    test_reallocation()
     #generate_random_data()
 
 if __name__ == "__main__":
