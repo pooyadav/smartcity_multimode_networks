@@ -17,6 +17,7 @@ class multi_network_management():
     list_allocations = []
     # Utilisation based MultiNetwork Mangement
     list_elements = []
+    list_elements_original = []
     list_unallocated_elements = []
     list_bins = []
     list_criticalities = [None] * num_crit_levels
@@ -96,9 +97,11 @@ class multi_network_management():
             #print(msgflow.get_name() + str(msgflow.get_highest_criticality()))
             mfe = MessageFlowElement(msgflow, msgflow.get_highest_criticality())
             self.list_elements.append(mfe)
+            self.list_elements_original.append(mfe)
         else:
             mfe = MessageFlowElement(msgflow, msgflow.get_lowest_criticality())
             self.list_elements.append(mfe)
+            self.list_elements_original.append(mfe)
 
     def add_network(self, network):
         """ Add the network to list_networks and list_bins """
@@ -123,6 +126,7 @@ class multi_network_management():
     def perform_inverted_allocation(self):
         """ Criticality aware algo """
         all_success = True
+
         ## Populate all the criticalitiy list.
         ## Basically, if we have 5 critical level, we have a list of 5 elements
         # where wach element is another list of MFE of that critical level
@@ -190,7 +194,7 @@ class multi_network_management():
         """ Populate all the msgflow list - criticality wise """
         # Read all the elements in list_elements (contains msgflows
 
-        for msgflow in self.list_elements:
+        for msgflow in self.list_elements_original:
             #print("MSGFLOW: " + msgflow.to_string())
             # Read all the msgflws, check all criticalties
             mfe = msgflow
@@ -266,7 +270,7 @@ class multi_network_management():
         bin_capacity = self.get_largest_bin().get_capacity()
         # Check if the elements fits into the Network bin
         if not element.fits_into(bin_capacity):
-            print("Element " + element.get_id() + " doesn't fit in to Network Bin " + bin_capacity.get_id())
+            print("Element " + element.get_id() + " doesn't fit in to Network Bin " + self.get_largest_bin().get_id())
             self.list_unallocated_elements.append(element)
         else:
             current_bin = None
