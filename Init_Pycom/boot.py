@@ -55,7 +55,7 @@ def connect_wifi(ssid, passwifi):
             wlan.connect(net.ssid, auth=(net.sec, passwifi), timeout=10000)
             while not wlan.isconnected():
                 print('W', end='')
-                time.sleep(1)
+                utime.sleep(1)
                 machine.idle() # save power while waiting
             print('WLAN connection succeeded!')
             return True
@@ -85,7 +85,7 @@ def connect_lora_otaa():
     i = 1
     while not lora.has_joined():
         i = i + 1
-        time.sleep(2.5)
+        utime.sleep(2.5)
         print('L', end='')
         if i == 20:
             print("Gave up on Lora; Network signal not strong")
@@ -171,12 +171,12 @@ def connect_nbiot():
     lte.attach(band=20, apn="pycom.io")
     while not lte.isattached():
         print('A', end='')
-        time.sleep(0.25)
+        utime.sleep(0.25)
     print("LTE: Attached")
     lte.connect()       # start a data session and obtain an IP address
     while not lte.isconnected():
         print('C', end='')
-        time.sleep(0.25)
+        utime.sleep(0.25)
     print("LTE: Connected")
 
 def check_connection(msg_array, s_lora, s_sigfox):
@@ -307,7 +307,7 @@ def write_data_uart(msgflow_name, msgflow_crit_level, msgflow_period, msgflow_pa
         #print(msg_uart)
         uart.write(msg_uart)
         print("Message written, sleeping")
-        time.sleep(msgflow_period)
+        utime.sleep(msgflow_period)
 
 
 def generate_random_data():
@@ -393,8 +393,8 @@ def main():
     """ Main function currently make calls to connect all networks and UART """
     connect_wifi(WIFI_SSID, WIFI_PASS)
     rtc.ntp_sync("pool.ntp.org")
-    time.timezone(3600)
-    time.sleep(5)
+    utime.timezone(3600)
+    utime.sleep(5)
     rtc.ntp_sync("pool.ntp.org")
     rtc.ntp_sync("pool.ntp.org")
     rtc.ntp_sync("pool.ntp.org")
