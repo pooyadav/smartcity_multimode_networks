@@ -2,7 +2,6 @@
 #import urandom
 import os
 import sys
-import time
 import struct
 import socket
 from network import WLAN
