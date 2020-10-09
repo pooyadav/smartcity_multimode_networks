@@ -2,20 +2,19 @@
 #import urandom
 import os
 import sys
-import utime
 import time
-import machine
-import urequests as requests
+import struct
+import socket
 from network import WLAN
 from network import Sigfox
 from network import LTE
-from umqtt import MQTTClient
 from network import LoRa
+#from umqtt import MQTTClient
 import ubinascii
-import struct
-import socket
-import pycom
+import urequests as requests
+import utime
 import _thread
+import machine
 from machine import UART
 from mnm.multi_network_management import multi_network_management
 from mnm.msgflow import MessageFlow
@@ -55,7 +54,7 @@ def connect_wifi(ssid, passwifi):
             print('Network found!')
             wlan.connect(net.ssid, auth=(net.sec, passwifi), timeout=10000)
             while not wlan.isconnected():
-                print('W',end='')
+                print('W', end='')
                 time.sleep(1)
                 machine.idle() # save power while waiting
             print('WLAN connection succeeded!')
@@ -87,7 +86,7 @@ def connect_lora_otaa():
     while not lora.has_joined():
         i = i + 1
         time.sleep(2.5)
-        print('L',end='')
+        print('L', end='')
         if i == 20:
             print("Gave up on Lora; Network signal not strong")
             return None
@@ -165,19 +164,18 @@ def connect_uart(s_lora, s_sigfox):
         except:
             print("Keyboard Interrupt")
             raise
-            break
 
 def connect_nbiot():
     """ Connect to NB-IoT network"""
     lte.init()
     lte.attach(band=20, apn="pycom.io")
     while not lte.isattached():
-        print('A',end='')
+        print('A', end='')
         time.sleep(0.25)
     print("LTE: Attached")
     lte.connect()       # start a data session and obtain an IP address
     while not lte.isconnected():
-        print('C',end='')
+        print('C', end='')
         time.sleep(0.25)
     print("LTE: Connected")
 
@@ -225,18 +223,9 @@ def check_connection(msg_array, s_lora, s_sigfox):
         s_sigfox.send(msg)
         print("Data sent on SigFox")
 
-# Builds the json to send the request
-def build_json(time, temp):
-    try:
-        time = 1234
-        temp = 34
-        data = {time,temp}
-        return data
-    except:
-        return None
-
 # Sends the request. Please reference the REST API reference https://ubidots.com/docs/api/
 def post_var(msg, medium):
+    """ Post the message via HTTP Post to the InfluxDB Server """
     try:
         url = "http://8.209.93.91:8080/"
         url = url + medium
@@ -244,23 +233,20 @@ def post_var(msg, medium):
         if msg is not None:
             print(msg)
             req = requests.post(url=url, headers=headers, data=msg)
-            print (req.status_code)
+            print(req.status_code)
             status_code = req.status_code
             req.close()
             return status_code
-        else:
-            print("WTF")
-            pass
+        print("WTF: Error Message not sent")
     except:
         print("Yahoo")
         raise
-        pass
 
 def check_connection_thread(msg, s_lora, s_sigfox):
     """ Check which networks are connected and send data via that network """
 #        check if wlan is connected
 #       if connected great! If not check if nb-iot, lora, sigfox
-    print ("Hello World")
+    print("Hello World")
     args_tuple = [msg]
 #    _thread.start_new_thread(thread_send_wifi, args_tuple)
 #    _thread.start_new_thread(thread_send_lte, args_tuple)
@@ -273,25 +259,29 @@ def check_connection_thread(msg, s_lora, s_sigfox):
 
 
 def thread_send_wifi(msg):
+    """ Thread Send the msg via WiFi """
     if wlan.isconnected():
         post_var(msg, "wifi")
     else:
         print("WiFi not connected")
 
 def thread_send_lte(msg):
+    """ Thread send the msg via LTE """
     if lte.isconnected():
         post_var(msg, "lte")
     else:
         print("LTE not connected")
 
 def thread_send_lora(msg, s_lora):
+    """ Thread send the msg via LoRaWAN """
     if lora.has_joined():
         s_lora.send(msg)
-        print ("Message sent on lora")
+        print("Message sent on lora")
     else:
         print("Lora not connected")
 
 def thread_send_sigfox(msg, s_sigfox):
+    """ Thread send the msg via SigFox """
     # Send only important data on SigFox (12bytes)
     if len(msg) > 12:
         # Assuming data is currently epochtime:cputime like 1594329236:66.705 which is 17 bytes.
@@ -310,6 +300,7 @@ def thread_send_sigfox(msg, s_sigfox):
         s_sigfox.send(msg)
 
 def write_data_uart(msgflow_name, msgflow_crit_level, msgflow_period, msgflow_payload):
+    """ Writing data on the UART with msgflow_name, msgflow_crit_level, msgflow_payload """
     # Let's say we want to send two messages
     for i in range(0, 1):
         msg_uart = msgflow_name + "," + str(msgflow_crit_level) + "," + "A" * msgflow_payload
@@ -319,7 +310,8 @@ def write_data_uart(msgflow_name, msgflow_crit_level, msgflow_period, msgflow_pa
         time.sleep(msgflow_period)
 
 
-def generate_random_data(mnm):
+def generate_random_data():
+    """ Generating random data for each message flow defined """
     # Reading all the message flows
     for msgflow in mnm.list_msgflows:
         # Reading number of crit_levels in the Message Flow i.num_crit_level
@@ -341,6 +333,7 @@ def generate_random_data(mnm):
         #write_data_uart(msgflow_name, msgflow_period, msgflow_payload)
 
 def check_allocations():
+    """ Setting up the message flows and the networks """
     falld = MessageFlow("Fall Detection", 0, 1000, 10)
     falld.set_crit_level(1, 40, 20)
     falld.set_crit_level(2, 10, 60)
@@ -419,7 +412,7 @@ def main():
     else:
         print("Wi-Fi got disconnected")
     print("Everything is a thread")
-    #generate_random_data(mnm)
+    #generate_random_data()
 
 if __name__ == "__main__":
     main()

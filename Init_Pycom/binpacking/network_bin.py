@@ -19,14 +19,13 @@ class NetworkBin:
             is_duplicate = True
         else:
             is_duplicate = False
-        
         # Check if element is already allocated to the Network Bin
         if is_duplicate:
             error_msg = "Network Bin " + str(self.get_id()) + " already contains the element " + str(element.get_id())
             print(error_msg)
             raise DuplicateElementException(error_msg)
         current_bin_free_space = self.get_free_space()
-        
+
         # Check if the Network Bin has enough free space for the element
         if element.fits_into(DoubleValueSize(current_bin_free_space)) is None:
             error_msg = "Network Bin " + str(self.get_id()) + " is full. Can't add the element " + str(element.get_id())
@@ -73,7 +72,6 @@ class NetworkBin:
         usage = DoubleValueSize(0.0)
         for element in self.allocated:
             usage = DoubleValueSize(usage.add(element.get_size()))
-        
         return usage
 
     def print_allocated(self):
