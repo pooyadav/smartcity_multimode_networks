@@ -1,4 +1,5 @@
 """ Class to store a list of networks, msgflows and allocations """
+import copy
 from mnm.msgflow import MessageFlow
 from mnm.network_algo import Network
 from mnm.allocation import Allocation
@@ -249,6 +250,14 @@ class multi_network_management():
         print(str_temp + ": No")
         return None
 
+    def is_in_list_unallocated(self, mfe):
+        """ Check if the mfe is present in the list_unalloacted_elements or not """
+        print("Hello World")
+        for item in self.list_unallocated_elements:
+            if mfe.allocated_crit_level == item.allocated_crit_level and mfe.get_message_flow().get_name() == item.get_message_flow().get_name():
+                return True
+        return False
+
     def perform_allocation(self):
         """ Perform the allocation of the elements """
         if self.decreasing:
@@ -271,7 +280,9 @@ class multi_network_management():
         # Check if the elements fits into the Network bin
         if not element.fits_into(bin_capacity):
             print("Element " + element.get_id() + " doesn't fit in to Network Bin " + self.get_largest_bin().get_id())
-            self.list_unallocated_elements.append(element)
+            # Check if the element is present in list_unallocated_elements; If present don't add
+            if not self.is_in_list_unallocated(element):
+                self.list_unallocated_elements.append(copy.copy(element))
         else:
             current_bin = None
             matching_bin = None
@@ -305,7 +316,8 @@ class multi_network_management():
 
             # Element doesn't fit into any bin
             if ((matching_bin is None) or not element.fits_into(DoubleValueSize(matching_bin.get_free_space()))):
-                self.list_unallocated_elements.append(element)
+                if not self.is_in_list_unallocated(element):
+                    self.list_unallocated_elements.append(copy.copy(element))
             else:
                 try:
                     mfe = element

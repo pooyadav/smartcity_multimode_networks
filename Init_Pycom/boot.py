@@ -397,6 +397,7 @@ def test_reallocation():
     mnm.list_criticalities.clear()
     # Redefine the list of criticalities
     mnm.list_criticalities = [None] * mnm.num_crit_levels
+    mnm.list_unallocated_elements.clear()
     # Redefine the list_criticalities as list
     for i in range(0, mnm.num_crit_levels):
         mnm.list_criticalities[i] = []
@@ -444,7 +445,7 @@ def main():
     #     print("Wi-Fi got disconnected")
     # print("Everything is a thread")
     # # Testing the reallocation by setting Wi-Fi to zero.
-    test_reallocation()
+    #test_reallocation()
     #generate_random_data()
 
 if __name__ == "__main__":
