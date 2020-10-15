@@ -25,4 +25,7 @@ class Allocation:
         """ Prints the string which network interface is defined what msgflow
         should be msgflow --> network interface """
         string = self.net.get_name() + " <- " + str(self.get_crit_level()) + " - " + self.flow.get_name()
+        # Creating a dict for sending on UART
+        dict_alloc = {"MF": self.flow.get_name(), "CL": self.get_crit_level(), "N":self.net.get_name(), "PS": self.flow.get_payload(self.get_crit_level()), "PE": self.flow.get_period(self.get_crit_level())}
         print(string)
+        return dict_alloc

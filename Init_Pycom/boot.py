@@ -381,7 +381,8 @@ def check_allocations():
     mnm.set_best_fit()
 
     mnm.perform_inverted_allocation()
-    mnm.print_all_allocation()
+    # Dictionary new_alloc to be written on UART
+    new_alloc = mnm.print_all_allocation()
     mnm.print_unallocated_elements()
     print("Allocated Percentage is " + str(mnm.get_allocated_percentage()))
     print("Average Criticality is " + str(mnm.get_avg_criticality()))

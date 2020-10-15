@@ -86,9 +86,12 @@ class multi_network_management():
 
     def print_all_allocation(self):
         """ Print all the allocated msgflows """
+        list_alloc = []
         print("Allocated MFE:")
         for i in self.list_allocations:
-            i.to_string()
+            list_alloc.append(i.to_string())
+        print(list_alloc)
+        return list_alloc
 
     def add_msgflow(self, msgflow):
         """ Add msgflow in the list_msgflow and elements based on criticality"""
@@ -283,6 +286,7 @@ class multi_network_management():
             # Check if the element is present in list_unallocated_elements; If present don't add
             if not self.is_in_list_unallocated(element):
                 self.list_unallocated_elements.append(copy.copy(element))
+
         else:
             current_bin = None
             matching_bin = None
@@ -318,6 +322,9 @@ class multi_network_management():
             if ((matching_bin is None) or not element.fits_into(DoubleValueSize(matching_bin.get_free_space()))):
                 if not self.is_in_list_unallocated(element):
                     self.list_unallocated_elements.append(copy.copy(element))
+                    # temp_list = []
+                    # temp_list.append(element)
+                    # self.list_unallocated_elements.extend(temp_list)
             else:
                 try:
                     mfe = element
