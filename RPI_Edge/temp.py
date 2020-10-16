@@ -13,6 +13,7 @@ buf = ""
 while True:
 #    temp = s.recv(1024)
     temp = s.recv(len(str_v))
+    print(len(temp))
     if '\n' in temp:
         buf = buf + temp
         buf.strip()
