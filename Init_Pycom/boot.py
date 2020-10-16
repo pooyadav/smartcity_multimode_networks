@@ -1,5 +1,5 @@
 """ Function definition for connecting different networks"""
-import urandom
+#import urandom
 import os
 import sys
 import struct
@@ -66,7 +66,6 @@ def connect_sigfox():
 
 # Create a Sigfox socket
     sock_sigfox = socket.socket(socket.AF_SIGFOX, socket.SOCK_RAW)
-    print("Hello3")
 # make the socket blocking
     sock_sigfox.setblocking(True)
 # Configure it as uplink
@@ -148,18 +147,66 @@ def connect_lora_abp():
     data = s.recv(64)
     print(data)
 
+def read_uart():
+
+    while True:
+        data = ""
+        size = len(data)
+
+        while True:
+            try:
+                byte = uart.readline()
+                new_line = ["\n", "\r"]
+                if byte is not None:
+                    if byte not in new_line:
+                        print("Len of byte is " + str(len(byte)))
+                        if len(byte) == 1:
+                            ":".join("{:02x}".format(ord(c)) for c in str(byte))
+                        byte = byte.decode('UTF-8')
+                        data += byte
+                if data.startswith(':ML:'):
+                #Setting ML length to be in format of :ML:500
+                    temp = data.split(",")
+                    temp2 = temp[0].split(":")
+                    msglen = int(temp2[2])
+                    size = msglen
+            except:
+                print("Keyboard Interrupt")
+                raise
+
+            if not data:
+                if verbose > 0:
+                    print("[Receive Error] Upstream connection is gone", file=sys.stderr)
+                return
+            # Newline terminates the read request
+            if data.endswith("\n"):
+                break
+            # Sometimes a newline is missing at the end
+            # If this round has the same data length as previous, we're done
+            if size == len(data):
+                break
+            size = len(data)
+        # Remove trailing newlines
+        if data.startswith(':ML:'):
+        #Setting ML length to be in format of :ML:500
+            temp = data.split(",", 1)
+            data = temp[1]
+            data = data.rstrip("\r\n")
+            data = data.rstrip("\n")
+#        print("Final Message from read_uart is " + data)
+        return data.encode("UTF-8")
+
+
 def connect_uart(s_lora, s_sigfox):
     """ Connect to UART Pins P3/P4 and send data to the cloud"""
     while True:
         try:
             if uart.any() != 0:
-                uart_msg = uart.readline()
+                uart_msg = read_uart()
                 if uart_msg is not None:
-#                    send_mqtt(uart_msg)
                     uart_msg = uart_msg.decode("utf-8")
-                    print("UART Message is " + str(type(uart_msg)) + str(uart_msg))
+#                    print("UART Message Type is " + str(type(uart_msg)) + "and Message is" + str(uart_msg) + "!")
                     check_connection(uart_msg, s_lora, s_sigfox)
-#                    uart.write("Data sent\n")
         except:
             print("Keyboard Interrupt")
             raise
@@ -189,50 +236,53 @@ def check_connection(msg_array, s_lora, s_sigfox):
     msg = temp_msg[2]
     print(msgflow_name, msgflow_crit_level)
     bin_name = mnm.get_network_bin(msgflow_name, int(msgflow_crit_level))
-    print("Check Connection?" + str(bin_name or 'Not Allocated'))
+    print("Check Network Bin: " + str(bin_name or 'Not Allocated'))
     connected_wifi = wlan.isconnected()
+    if connected_wifi is False:
+        connect_wifi(WIFI_SSID, WIFI_PASS)
+        connected_wifi = wlan.isconnected()
 #    connected_lte = lte.isconnected()
     connected_lte = False
     connected_lora = lora.has_joined()
+    print("Lora is " + str(connected_lora) + " Wi-Fi is " + str(connected_wifi) )
     if bin_name == "Wi-Fi" and connected_wifi:
         ## Send data using WiFi
         print("Data on WiFi")
-        post_var(msg, "wifi")
+        post_var(msg, "wifi", msgflow_name)
     elif bin_name == "LTE-M" and connected_lte:
         ## Send data using lte
         print("Data on LTE")
-        post_var(msg, "lte")
+        post_var(msg, "lte", msgflow_name)
     elif bin_name == "LoRaWAN" and connected_lora:
         ## Send data using lora
         s_lora.send(msg)
+        ack_msg = "ACK:" + msgflow_name + "\n"
+        uart.write(ack_msg)
+
         print("Data on Lora")
     elif bin_name == "SigFox":
         # Send only important data on SigFox (12bytes)
         if len(msg) > 12:
-        # Assuming data is currently epochtime:cputime like 1594329236:66.705 which is 17 bytes.
-        #Removing last two digit of epochtime (replace it with 00 at the server and removing : and . we make it to 12 bytes)
-        # Reduced to 1594329236:66.705 to 159432926670
-            temp_msg = msg
-            temp_epoch = temp_msg.split(':')[0]
-            temp_cputemp = temp_msg.split(':')[1]
-            temp_epoch2 = temp_epoch[:-2]
-            temp_cputemp2 = temp_cputemp.replace(".", "")
-            temp_cputemp3 = temp_cputemp2[:-1]
-            msg = temp_epoch2 + temp_cputemp3
+            # If data is greater than 12 bytes, trim it as of now
+            msg = msg[:12]
         s_sigfox.send(msg)
         print("Data sent on SigFox")
+        ack_msg = "ACK:" + msgflow_name + "\n"
+        uart.write(ack_msg)
 
 # Sends the request. Please reference the REST API reference https://ubidots.com/docs/api/
-def post_var(msg, medium):
+def post_var(msg, medium, msgflow_name):
     """ Post the message via HTTP Post to the InfluxDB Server """
     try:
         url = "http://8.209.93.91:8080/"
         url = url + medium
         headers = {"X-Auth-Token": "FiPy", "Content-Type": "application/json"}
         if msg is not None:
-            print(msg)
             req = requests.post(url=url, headers=headers, data=msg)
             print(req.status_code)
+            if req.status_code is 200 or req.status_code is 500:
+                ack_msg = "ACK:" + msgflow_name + "\n"
+                uart.write(ack_msg)
             status_code = req.status_code
             req.close()
             return status_code
@@ -295,6 +345,7 @@ def thread_send_sigfox(msg, s_sigfox):
         msg = temp_epoch2 + temp_cputemp3
         s_sigfox.send(msg)
         print("Data sent on SigFox")
+        uart.write("")
     else:
         s_sigfox.send(msg)
 
@@ -309,27 +360,27 @@ def write_data_uart(msgflow_name, msgflow_crit_level, msgflow_period, msgflow_pa
         utime.sleep(msgflow_period)
 
 
-def generate_random_data():
-    """ Generating random data for each message flow defined """
-    # Reading all the message flows
-    for msgflow in mnm.list_msgflows:
-        # Reading number of crit_levels in the Message Flow i.num_crit_level
-        # Selecting a random crit_level, this may or may not be defined
-        rand_crit_level = (int.from_bytes(os.urandom(1), sys.byteorder)) % (msgflow.num_crit_level - 1)
-        # Try to get the MsgFlow which has a certain criticality defined
-        while not msgflow.has_criticality(rand_crit_level):
-            rand_crit_level = (int.from_bytes(os.urandom(1), sys.byteorder)) % (msgflow.num_crit_level - 1)
-            # print("I am inside")
-            # print(rand_crit_level)
-        msgflow_name = msgflow.get_name()
-        msgflow_payload = msgflow.get_payload(rand_crit_level)
-        msgflow_period = msgflow.get_period(rand_crit_level)
-        msgflow_crit_level = rand_crit_level
-        #print(msgflow_name, msgflow_period, msgflow_payload)
-        args_tuple = [msgflow_name, msgflow_crit_level, msgflow_period, msgflow_payload]
-        # Start a new thread to send the message
-        _thread.start_new_thread(write_data_uart, args_tuple)
-        #write_data_uart(msgflow_name, msgflow_period, msgflow_payload)
+# def generate_random_data():
+#     """ Generating random data for each message flow defined """
+#     # Reading all the message flows
+#     for msgflow in mnm.list_msgflows:
+#         # Reading number of crit_levels in the Message Flow i.num_crit_level
+#         # Selecting a random crit_level, this may or may not be defined
+#         rand_crit_level = (int.from_bytes(os.urandom(1), sys.byteorder)) % (msgflow.num_crit_level - 1)
+#         # Try to get the MsgFlow which has a certain criticality defined
+#         while not msgflow.has_criticality(rand_crit_level):
+#             rand_crit_level = (int.from_bytes(os.urandom(1), sys.byteorder)) % (msgflow.num_crit_level - 1)
+#             # print("I am inside")
+#             # print(rand_crit_level)
+#         msgflow_name = msgflow.get_name()
+#         msgflow_payload = msgflow.get_payload(rand_crit_level)
+#         msgflow_period = msgflow.get_period(rand_crit_level)
+#         msgflow_crit_level = rand_crit_level
+#         #print(msgflow_name, msgflow_period, msgflow_payload)
+#         args_tuple = [msgflow_name, msgflow_crit_level, msgflow_period, msgflow_payload]
+#         # Start a new thread to send the message
+#         _thread.start_new_thread(write_data_uart, args_tuple)
+#         #write_data_uart(msgflow_name, msgflow_period, msgflow_payload)
 
 def check_allocations():
     """ Setting up the message flows and the networks """
@@ -359,8 +410,25 @@ def check_allocations():
     enermon = MessageFlow("Energy Usage", 0, 40, 3600)
 
     # Let's say network 1 has 8000 bps bandwidth
-    network1 = Network("Wi-Fi", True, 8000, -1, -1)
-    network4 = Network("LoRaWAN", True, 220, 222, 144)
+    if wlan.isconnected():
+        print("Adding Wi-Fi to Network")
+        network1 = Network("Wi-Fi", True, 8000, -1, -1)
+        mnm.add_network(network1)
+    else:
+        # Trying WiFi one more time
+        connect_wifi(WIFI_SSID, WIFI_PASS)
+        if wlan.isconnected():
+            print("Adding Wi-Fi to Network")
+            network1 = Network("Wi-Fi", True, 8000, -1, -1)
+            mnm.add_network(network1)
+        else:
+            print("Giving up WiFi")
+
+
+    if lora.has_joined():
+        print("Adding LoRaWAN to Network")
+        network4 = Network("LoRaWAN", True, 220, 222, 144)
+        mnm.add_network(network4)
     network2 = Network("SigFox", True, 6, 12, 144)
     network3 = Network("LTE-M", True, 10, 12, 144)
 #    mnm = multi_network_management()
@@ -372,8 +440,8 @@ def check_allocations():
     mnm.add_msgflow(kitsens)
     mnm.add_msgflow(frontsens)
     mnm.add_msgflow(enermon)
-    mnm.add_network(network1)
-    mnm.add_network(network4)
+
+
     mnm.add_network(network2)
 
 
@@ -384,7 +452,8 @@ def check_allocations():
     # Dictionary new_alloc to be written on UART
     new_alloc = mnm.print_all_allocation()
     msgflow_alloc = "MFEA:" + str(new_alloc)
-    uart.write(msgflow_alloc)
+    msgflow_alloc_enc = msgflow_alloc.encode('UTF-8')
+#    uart.write(msgflow_alloc)
     mnm.print_unallocated_elements()
     print("Allocated Percentage is " + str(mnm.get_allocated_percentage()))
     print("Average Criticality is " + str(mnm.get_avg_criticality()))
@@ -413,11 +482,13 @@ def test_reallocation():
         #     mnm.list_bins[j].remove_element(item)
     for j in range(0, len(mnm.list_bins)):
         ele = mnm.list_bins[j].get_elements()
-        print("After Removing Elements in Bin " + mnm.list_bins[j].get_id())
-        print(ele)
-    print(mnm.list_elements)
+#        print("After Removing Elements in Bin " + mnm.list_bins[j].get_id())
+#        print(ele)
+#    print(mnm.list_elements)
     mnm.perform_inverted_allocation()
-    mnm.print_all_allocation()
+    new_alloc = mnm.print_all_allocation()
+    msgflow_alloc = "MFEA:" + str(new_alloc)
+#    uart.write(msgflow_alloc)
     mnm.print_unallocated_elements()
     print("Allocated Percentage is " + str(mnm.get_allocated_percentage()))
     print("Average Criticality is " + str(mnm.get_avg_criticality()))
@@ -448,7 +519,7 @@ def main():
         print("Wi-Fi got disconnected")
     print("Everything is a thread")
     # Testing the reallocation by setting Wi-Fi to zero.
-    test_reallocation()
+#    test_reallocation()
     #generate_random_data()
 
 if __name__ == "__main__":
