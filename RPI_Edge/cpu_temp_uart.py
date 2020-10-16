@@ -60,7 +60,7 @@ def read_mfe(mfea):
         # Creating a entry into the stats dict
         create_stats(msgflow_name)
 
-        print("Message Flow" + msgflow_name + " of crit level " + str(msgflow_crit_level) + " Period " + str(msgflow_period))
+        print("Message Flow: " + msgflow_name + " of crit level " + str(msgflow_crit_level) + " Period " + str(msgflow_period))
         # Msgflow payload, currently A * msgpayload_size. Hopefully, real payload later
         # Let's say we create msgflow payload here
         msgflow_payload = "A" * msgflow_payload_size
@@ -80,8 +80,15 @@ def create_stats(msgflow_name):
 
 def ack_message(msgflow_name):
     """ Function to process the ACK message which is in the format ACK:Body Temperature """
-    if msgflow_name in stats.keys():
-        stats[msgflow_name]["recv"] = stats[msgflow_name]["recv"] + 1
+    msgflow_name = msgflow_name.rstrip("\n")
+    if '\n' in msgflow_name:
+        msg_flows = msgflow_name.split("\n")
+
+    for item in msg_flows:
+        item_v = item.split(":")
+        item_v = item_v[1]
+        if item_v in stats.keys():
+            stats[item_v]["recv"] = stats[item_v]["recv"] + 1
 
 
 def write_data_uart(event, msgflow_name, msgflow_crit_level, msgflow_period, msgflow_payload):
@@ -98,8 +105,7 @@ def write_data_uart(event, msgflow_name, msgflow_crit_level, msgflow_period, msg
         print("Message written, sleeping")
         stats[msgflow_name]["sent"] = stats[msgflow_name]["sent"] + 1
         # Wait for the msgflow_period to send the next message
-        event.wait(5)
-
+        event.wait(msgflow_period)
 
 def connect_to_uart():
     """ Function to read UART and send messages on UART """
@@ -118,32 +124,32 @@ def connect_to_uart():
                     print('\nDisconnected from server')
                     sys.exit()
                 else:
+                    print(len(data)) 
                     if isinstance(data, str):
                         temp = data
                     else:
                         temp = data.decode('utf-8', errors='replace')
-                        buf = ""
-                        if '\n' in temp:
-                            buf = buf + temp
-                            buf.strip()
-                            print(buf)
-                        else:
-                            buf = buf + temp
+                        # buf = ""
+                        # if '\n' in temp or '\r' in temp:
+                        #     buf = buf + temp
+                        #     buf.strip()
+                        #     print(buf)
+                        # else:
+                        #     buf = buf + temp
 
                     # If Message Flow Allocation Message is received
                     # MFEA:[{'PS': 40, 'N': 'SigFox', 'MF': 'Energy Usage', 'PE': 3600, 'CL': 0}]
-                    if temp.startswith('MFEA'):
+                    if temp.startswith('MFEA:') and temp.endswith("]"):
                         # Call the read_mfe function
-                        print("In connect_to_uart")
                         temp2 = temp.split(":", 1)
                         read_mfe(temp2[1])
 
                     # If ACK of Message Flow sent message is received
                     # ACK:Energy Usage
-                    if temp.startswith('ACK'):
-                        temp2 = temp.split(":", 1)
-                        msgflow_name = temp2[1].rstrip()
+                    if temp.startswith('ACK:'):
+                        msgflow_name = temp
                         ack_message(msgflow_name)
+                    # If STATS print the stats    
                     if temp.startswith('STATS'):
                         print(stats)
 
@@ -157,12 +163,18 @@ def connect_to_uart():
                 pass
     #            outputs.remove(s)
             else:
+                # temp contains the original message
                 temp = next_msg.split(",")
-                print_msg = next_msg[0] + next_msg[1]
-
+                # Splitting for printing
+                print_msg = temp[0] + " " + temp[1]
                 print("sending " + str(print_msg.rstrip()) + " to " + str(s.getpeername()))
-                next_msg = next_msg.encode('utf-8')
-                s.send(next_msg)
+
+                msg_len = len(next_msg)
+                # 5 == 4 for :ML: 
+                len_of_header = 5 + len(str(msg_len))
+                uart_msg = ":ML:" + str(msg_len + len_of_header) + "," + next_msg
+                uart_msg = uart_msg.encode('utf-8')
+                s.send(uart_msg)
 
 if __name__ == '__main__':
     connect_to_uart()
