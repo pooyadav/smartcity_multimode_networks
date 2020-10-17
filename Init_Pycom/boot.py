@@ -69,7 +69,7 @@ def connect_wifi(ssid, passwifi):
             print('WLAN connection succeeded!')
             return True
     print("network not found")
-    connect_wifi(ssid, passwifi)
+    return False
 
 def connect_sigfox():
     """ Connect to SigFox and return sigfox and socket"""
@@ -158,6 +158,7 @@ def connect_lora_abp():
     print(data)
 
 def read_uart():
+    """ Function to read UART until newline or the length of message is reached """
 
     while True:
         data = ""
@@ -185,9 +186,7 @@ def read_uart():
                 raise
 
             if not data:
-                if verbose > 0:
-                    print("[Receive Error] Upstream connection is gone", file=sys.stderr)
-                return
+                print("ERROR")
             # Newline terminates the read request
             if data.endswith("\n"):
                 break
@@ -257,7 +256,7 @@ def check_connection(msg_array, s_lora, s_sigfox):
 #    connected_lte = lte.isconnected()
     connected_lte = False
     connected_lora = lora.has_joined()
-    print("Lora is " + str(connected_lora) + " Wi-Fi is " + str(connected_wifi) )
+    print("Lora is " + str(connected_lora) + " Wi-Fi is " + str(connected_wifi))
     if bin_name == "Wi-Fi" and connected_wifi:
         ## Send data using WiFi
         print("Data on WiFi")
@@ -293,7 +292,7 @@ def post_var(msg, medium, msgflow_name):
         if msg is not None:
             req = requests.post(url=url, headers=headers, data=msg)
             print(req.status_code)
-            if req.status_code is 200 or req.status_code is 500:
+            if int(req.status_code) is 200 or int(req.status_code) is 500:
                 ack_msg = "ACK:" + msgflow_name
                 uart_write(ack_msg)
             status_code = req.status_code
@@ -303,64 +302,7 @@ def post_var(msg, medium, msgflow_name):
     except:
         print("Yahoo")
         raise
-
-def check_connection_thread(msg, s_lora, s_sigfox):
-    """ Check which networks are connected and send data via that network """
-#        check if wlan is connected
-#       if connected great! If not check if nb-iot, lora, sigfox
-    print("Hello World")
-    args_tuple = [msg]
-#    _thread.start_new_thread(thread_send_wifi, args_tuple)
-#    _thread.start_new_thread(thread_send_lte, args_tuple)
-    s_lora.send("HelloWorld")
-    args_tuple = [msg, s_lora]
-    _thread.start_new_thread(thread_send_lora, args_tuple)
-    args_tuple = [msg, s_sigfox]
-#    _thread.start_new_thread(thread_send_sigfox, args_tuple)
-    print("Bye World")
-
-
-def thread_send_wifi(msg):
-    """ Thread Send the msg via WiFi """
-    if wlan.isconnected():
-        post_var(msg, "wifi")
-    else:
-        print("WiFi not connected")
-
-def thread_send_lte(msg):
-    """ Thread send the msg via LTE """
-    if lte.isconnected():
-        post_var(msg, "lte")
-    else:
-        print("LTE not connected")
-
-def thread_send_lora(msg, s_lora):
-    """ Thread send the msg via LoRaWAN """
-    if lora.has_joined():
-        s_lora.send(msg)
-        print("Message sent on lora")
-    else:
-        print("Lora not connected")
-
-def thread_send_sigfox(msg, s_sigfox):
-    """ Thread send the msg via SigFox """
-    # Send only important data on SigFox (12bytes)
-    if len(msg) > 12:
-        # Assuming data is currently epochtime:cputime like 1594329236:66.705 which is 17 bytes.
-        #Removing last two digit of epochtime (replace it with 00 at the server and removing : and . we make it to 12 bytes)
-        # Reduced to 1594329236:66.705 to 159432926670
-        temp_msg = msg
-        temp_epoch = temp_msg.split(':')[0]
-        temp_cputemp = temp_msg.split(':')[1]
-        temp_epoch2 = temp_epoch[:-2]
-        temp_cputemp2 = temp_cputemp.replace(".", "")
-        temp_cputemp3 = temp_cputemp2[:-1]
-        msg = temp_epoch2 + temp_cputemp3
-        s_sigfox.send(msg)
-        print("Data sent on SigFox")
-        uart_write("")
-    else:
-        s_sigfox.send(msg)
+    return False
 
 def write_data_uart(msgflow_name, msgflow_crit_level, msgflow_period, msgflow_payload):
     """ Writing data on the UART with msgflow_name, msgflow_crit_level, msgflow_payload """
@@ -372,28 +314,6 @@ def write_data_uart(msgflow_name, msgflow_crit_level, msgflow_period, msgflow_pa
         print("Message written, sleeping")
         utime.sleep(msgflow_period)
 
-
-# def generate_random_data():
-#     """ Generating random data for each message flow defined """
-#     # Reading all the message flows
-#     for msgflow in mnm.list_msgflows:
-#         # Reading number of crit_levels in the Message Flow i.num_crit_level
-#         # Selecting a random crit_level, this may or may not be defined
-#         rand_crit_level = (int.from_bytes(os.urandom(1), sys.byteorder)) % (msgflow.num_crit_level - 1)
-#         # Try to get the MsgFlow which has a certain criticality defined
-#         while not msgflow.has_criticality(rand_crit_level):
-#             rand_crit_level = (int.from_bytes(os.urandom(1), sys.byteorder)) % (msgflow.num_crit_level - 1)
-#             # print("I am inside")
-#             # print(rand_crit_level)
-#         msgflow_name = msgflow.get_name()
-#         msgflow_payload = msgflow.get_payload(rand_crit_level)
-#         msgflow_period = msgflow.get_period(rand_crit_level)
-#         msgflow_crit_level = rand_crit_level
-#         #print(msgflow_name, msgflow_period, msgflow_payload)
-#         args_tuple = [msgflow_name, msgflow_crit_level, msgflow_period, msgflow_payload]
-#         # Start a new thread to send the message
-#         _thread.start_new_thread(write_data_uart, args_tuple)
-#         #write_data_uart(msgflow_name, msgflow_period, msgflow_payload)
 
 def check_allocations():
     """ Setting up the message flows and the networks """
@@ -472,6 +392,7 @@ def check_allocations():
     print("Average Criticality is " + str(mnm.get_avg_criticality()))
 
 def test_reallocation():
+    """ Funtion to test the reallocation setting the WiFi to be disabled """
 
     print("Setting the WiFi bandwidth to 0")
     print(mnm.list_elements)
@@ -533,7 +454,7 @@ def main():
     print("Everything is a thread")
     # Testing the reallocation by setting Wi-Fi to zero.
 #    test_reallocation()
-    #generate_random_data()
+
 
 if __name__ == "__main__":
     main()
