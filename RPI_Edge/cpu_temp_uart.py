@@ -28,6 +28,7 @@ list_threads = []
 stats = dict()
 
 def read_socket(sock):
+    """ Function to read the socket until newline or the length has been reached from header """
 
     while True:
         data = ""
@@ -55,9 +56,8 @@ def read_socket(sock):
                 raise
 
             if not data:
-                if verbose > 0:
-                    print("[Receive Error] Upstream connection is gone", file=sys.stderr)
-                return
+                print("ERROR: No data received")
+                return False
             # Newline terminates the read request
             if data.endswith("\n"):
                 break
@@ -208,7 +208,7 @@ def connect_to_uart():
                     print('\nDisconnected from server')
                     sys.exit()
                 else:
-                    print(len(data)) 
+                    print(len(data))
                     if isinstance(data, str):
                         temp = data
                     else:
@@ -233,13 +233,12 @@ def connect_to_uart():
                     if temp.startswith('ACK:'):
                         msgflow_name = temp
                         ack_message(msgflow_name)
-                    # If STATS print the stats    
+                    # If STATS print the stats
                     if temp.startswith('STATS'):
                         print(stats)
                     if temp.startswith('ERROR:'):
                         msgflow_name = temp
                         error_message(msgflow_name)
-                    
 
         # Writing messages to UART
         for sock in writable:
@@ -258,7 +257,7 @@ def connect_to_uart():
                 print("sending " + str(print_msg.rstrip()) + " to " + str(s.getpeername()))
 
                 msg_len = len(next_msg)
-                # 5 == 4 for :ML: 
+                # 5 == 4 for :ML:
                 len_of_header = 5 + len(str(msg_len))
                 uart_msg = ":ML:" + str(msg_len + len_of_header) + "," + next_msg
                 uart_msg = uart_msg.encode('utf-8')
