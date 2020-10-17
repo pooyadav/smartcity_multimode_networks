@@ -40,7 +40,7 @@ def read_socket(sock):
                 new_line = ["\n", "\r"]
                 if byte is not None:
                     if byte not in new_line:
-                        print("Len of byte is " + str(len(byte)))
+#                        print("Len of byte is " + str(len(byte)))
                         if len(byte) == 1:
                             ":".join("{:02x}".format(ord(c)) for c in str(byte))
                         byte = byte.decode('UTF-8')
@@ -208,7 +208,7 @@ def connect_to_uart():
                     print('\nDisconnected from server')
                     sys.exit()
                 else:
-                    print(len(data))
+#                    print(len(data))
                     if isinstance(data, str):
                         temp = data
                     else:
