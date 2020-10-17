@@ -40,6 +40,16 @@ sigfox = Sigfox(mode=Sigfox.SIGFOX, rcz=Sigfox.RCZ1)
 lora = LoRa(mode=LoRa.LORAWAN, region=LoRa.EU868)
 lte = LTE()
 
+def uart_write(msg):
+    """ Function to add ML and Newline as header """
+    msg_len = len(msg)
+    # 5 == 4 for :ML:
+    len_of_header = 5 + len(str(msg_len))
+    uart_msg = ":ML:" + str(msg_len + len_of_header) + "," + msg + "\n"
+    uart_msg = uart_msg.encode('utf-8')
+    uart.write(uart_msg)
+
+
 # A function has been defined to be called in the main file to make it shorter
 def connect_wifi(ssid, passwifi):
     """ Connect WiFi using provided ssid, password"""
@@ -237,6 +247,9 @@ def check_connection(msg_array, s_lora, s_sigfox):
     print(msgflow_name, msgflow_crit_level)
     bin_name = mnm.get_network_bin(msgflow_name, int(msgflow_crit_level))
     print("Check Network Bin: " + str(bin_name or 'Not Allocated'))
+    # If Message Flow has not been allocated, send message to RPi
+    if bin_name is None:
+        uart_write("ERROR:" + msgflow_name + ":" + "NOT_ALLOCATED")
     connected_wifi = wlan.isconnected()
     if connected_wifi is False:
         connect_wifi(WIFI_SSID, WIFI_PASS)
@@ -256,8 +269,8 @@ def check_connection(msg_array, s_lora, s_sigfox):
     elif bin_name == "LoRaWAN" and connected_lora:
         ## Send data using lora
         s_lora.send(msg)
-        ack_msg = "ACK:" + msgflow_name + "\n"
-        uart.write(ack_msg)
+        ack_msg = "ACK:" + msgflow_name
+        uart_write(ack_msg)
 
         print("Data on Lora")
     elif bin_name == "SigFox":
@@ -267,8 +280,8 @@ def check_connection(msg_array, s_lora, s_sigfox):
             msg = msg[:12]
         s_sigfox.send(msg)
         print("Data sent on SigFox")
-        ack_msg = "ACK:" + msgflow_name + "\n"
-        uart.write(ack_msg)
+        ack_msg = "ACK:" + msgflow_name
+        uart_write(ack_msg)
 
 # Sends the request. Please reference the REST API reference https://ubidots.com/docs/api/
 def post_var(msg, medium, msgflow_name):
@@ -281,8 +294,8 @@ def post_var(msg, medium, msgflow_name):
             req = requests.post(url=url, headers=headers, data=msg)
             print(req.status_code)
             if req.status_code is 200 or req.status_code is 500:
-                ack_msg = "ACK:" + msgflow_name + "\n"
-                uart.write(ack_msg)
+                ack_msg = "ACK:" + msgflow_name
+                uart_write(ack_msg)
             status_code = req.status_code
             req.close()
             return status_code
@@ -345,7 +358,7 @@ def thread_send_sigfox(msg, s_sigfox):
         msg = temp_epoch2 + temp_cputemp3
         s_sigfox.send(msg)
         print("Data sent on SigFox")
-        uart.write("")
+        uart_write("")
     else:
         s_sigfox.send(msg)
 
@@ -355,7 +368,7 @@ def write_data_uart(msgflow_name, msgflow_crit_level, msgflow_period, msgflow_pa
     for i in range(0, 1):
         msg_uart = msgflow_name + "," + str(msgflow_crit_level) + "," + "A" * msgflow_payload
         #print(msg_uart)
-        uart.write(msg_uart)
+        uart_write(msg_uart)
         print("Message written, sleeping")
         utime.sleep(msgflow_period)
 
@@ -453,7 +466,7 @@ def check_allocations():
     new_alloc = mnm.print_all_allocation()
     msgflow_alloc = "MFEA:" + str(new_alloc)
     msgflow_alloc_enc = msgflow_alloc.encode('UTF-8')
-#    uart.write(msgflow_alloc)
+#    uart_write(msgflow_alloc)
     mnm.print_unallocated_elements()
     print("Allocated Percentage is " + str(mnm.get_allocated_percentage()))
     print("Average Criticality is " + str(mnm.get_avg_criticality()))
@@ -488,7 +501,7 @@ def test_reallocation():
     mnm.perform_inverted_allocation()
     new_alloc = mnm.print_all_allocation()
     msgflow_alloc = "MFEA:" + str(new_alloc)
-#    uart.write(msgflow_alloc)
+#    uart_write(msgflow_alloc)
     mnm.print_unallocated_elements()
     print("Allocated Percentage is " + str(mnm.get_allocated_percentage()))
     print("Average Criticality is " + str(mnm.get_avg_criticality()))
