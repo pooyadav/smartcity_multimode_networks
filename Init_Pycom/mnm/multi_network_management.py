@@ -60,7 +60,7 @@ class multi_network_management():
         """ Allocate the MFE to the network """
         network.add_element(mfe)
         self.mf_allocate(mfe.get_message_flow(), network.get_network(), mfe.get_allocated_crit_level())
-        print("Allocated " + mfe.get_id() + " of criticality level " + str(mfe.get_allocated_crit_level()) + " in to " + network.get_id())
+#        print("Allocated " + mfe.get_id() + " of criticality level " + str(mfe.get_allocated_crit_level()) + " in to " + network.get_id())
 
     def deallocate(self, mfe):
         """ De-allocate the MFE if it's allocated """
@@ -160,7 +160,7 @@ class multi_network_management():
                 temp_msgflow_name = temp_msgflow.get_name()
                 # If the MFE is already allocated remove it from the list
                 if self.is_allocated(temp_msgflow):
-                    print("Removing " + temp_msgflow_name + " of criticality level " + str(i+1))
+#                    print("Removing " + temp_msgflow_name + " of criticality level " + str(i+1))
                     iter1_result.remove(j)
 
             # Assigned the MFE elements of a certain critical level
@@ -177,11 +177,11 @@ class multi_network_management():
 
                     mfe.set_allocated_crit_level(i)
                     success = self.perform_allocation_step(mfe)
-                    print("upgrade attempt: " + mfe.get_id() + " " + str(old_crit_level) + " -> " + str(i))
+#                    print("upgrade attempt: " + mfe.get_id() + " " + str(old_crit_level) + " -> " + str(i))
                     if success:
                         print("upgrade success: " + mfe.get_id() + " " + str(old_crit_level) + " -> " + str(i))
                     else:
-                        print("upgrade failed -- rollback: " + mfe.get_id() + " " + str(old_crit_level) + " <- " + str(i))
+#                        print("upgrade failed -- rollback: " + mfe.get_id() + " " + str(old_crit_level) + " <- " + str(i))
                         mfe.set_allocated_crit_level(old_crit_level)
                         success = self.perform_allocation_step(mfe)
                         if not success:
@@ -248,14 +248,13 @@ class multi_network_management():
         str_temp = "Checking if " + msgflow.get_name() + " is allocated"
         for i in range(0, len(self.list_allocations)):
             if self.list_allocations[i].get_flow() == msgflow:
-                print(str_temp + ": Yes")
+#                print(str_temp + ": Yes")
                 return self.list_allocations[i]
-        print(str_temp + ": No")
+#        print(str_temp + ": No")
         return None
 
     def is_in_list_unallocated(self, mfe):
         """ Check if the mfe is present in the list_unalloacted_elements or not """
-        print("Hello World")
         for item in self.list_unallocated_elements:
             if mfe.allocated_crit_level == item.allocated_crit_level and mfe.get_message_flow().get_name() == item.get_message_flow().get_name():
                 return True
@@ -331,7 +330,7 @@ class multi_network_management():
                 try:
                     mfe = element
                     nb = matching_bin
-                    print("Trying allocating " + mfe.get_id() + " of criticality level " + str(mfe.get_allocated_crit_level()) + " in to " + nb.get_id())
+#                    print("Trying allocating " + mfe.get_id() + " of criticality level " + str(mfe.get_allocated_crit_level()) + " in to " + nb.get_id())
                     self.allocate(mfe, nb)
                     return True
 

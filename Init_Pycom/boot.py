@@ -32,11 +32,14 @@ WIFI_PASS = "9XGDxfLnPvEq"
 # create an OTAA authentication parameters
 APP_EUI = ubinascii.unhexlify('70B3D57ED0030B7E')
 APP_KEY = ubinascii.unhexlify('43FB05A51AA73EC05511F936279DEB4E')
+MAX_LORA_PAYLOAD = 0
+MAX_LORA_BANDWIDTH = 0
 
 
 #The code is taken from https://docs.pycom.io/chapter/tutorials/all/wlan.html.
 wlan = WLAN(mode=WLAN.STA)
 sigfox = Sigfox(mode=Sigfox.SIGFOX, rcz=Sigfox.RCZ1)
+#lora = LoRa(mode=LoRa.LORAWAN, region=LoRa.EU868,tx_power=14, sf=12)
 lora = LoRa(mode=LoRa.LORAWAN, region=LoRa.EU868)
 lte = LTE()
 
@@ -87,6 +90,8 @@ def connect_sigfox():
 
 def connect_lora_otaa():
     """ Connect to LoRa and return lora and socket via OTAA auth method"""
+    global MAX_LORA_BANDWIDTH
+    global MAX_LORA_PAYLOAD
     lora.join(activation=LoRa.OTAA, auth=(APP_EUI, APP_KEY), timeout=0)
 
     # wait until the module has joined the network
@@ -102,9 +107,32 @@ def connect_lora_otaa():
     print("Finally Joined")
 
 # Print Stats
-    print("Lora.bandwidth is " + str(lora.bandwidth()))
-    print("Lora.sf is " + str(lora.sf()))
+    sf = lora.sf()
+    lb = lora.bandwidth()
+    print("Lora.bandwidth is " + str(lb))
+    print("Lora.sf is " + str(sf))
     print("lora.coding_rate is " + str(lora.coding_rate()))
+    if sf is 7 and lb is 0:
+        lora_max_bitrate = 5470
+        lora_max_payload = 222
+    elif sf is 8 and lb is 0:
+        lora_max_bitrate = 3125
+        lora_max_payload = 222
+    elif sf is 9 and lb is 0:
+        lora_max_bitrate = 1760
+        lora_max_payload = 115
+    elif sf is 10 and lb is 0:
+        lora_max_bitrate = 980
+        lora_max_payload = 51
+    elif sf is 11 and lb is 0:
+        lora_max_bitrate = 440
+        lora_max_payload = 51
+    elif sf is 12 and lb is 0:
+        lora_max_bitrate = 250
+        lora_max_payload = 51
+    MAX_LORA_PAYLOAD = lora_max_payload
+    MAX_LORA_BANDWIDTH = lora_max_bitrate
+
 # create a LoRa socket
     sock_lora = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
 
@@ -170,7 +198,7 @@ def read_uart():
                 new_line = ["\n", "\r"]
                 if byte is not None:
                     if byte not in new_line:
-                        print("Len of byte is " + str(len(byte)))
+#                        print("Len of byte is " + str(len(byte)))
                         if len(byte) == 1:
                             ":".join("{:02x}".format(ord(c)) for c in str(byte))
                         byte = byte.decode('UTF-8')
@@ -267,6 +295,8 @@ def check_connection(msg_array, s_lora, s_sigfox):
         post_var(msg, "lte", msgflow_name)
     elif bin_name == "LoRaWAN" and connected_lora:
         ## Send data using lora
+        if len(msg) > MAX_LORA_PAYLOAD:
+            msg = msg[:MAX_LORA_PAYLOAD]
         s_lora.send(msg)
         ack_msg = "ACK:" + msgflow_name
         uart_write(ack_msg)
@@ -357,12 +387,12 @@ def check_allocations():
         else:
             print("Giving up WiFi")
 
-
     if lora.has_joined():
         print("Adding LoRaWAN to Network")
-        network4 = Network("LoRaWAN", True, 220, 222, 144)
+        print(str(MAX_LORA_PAYLOAD), str(MAX_LORA_BANDWIDTH))
+        network4 = Network("LoRaWAN", True, MAX_LORA_BANDWIDTH, MAX_LORA_PAYLOAD, 144)
         mnm.add_network(network4)
-    network2 = Network("SigFox", True, 6, 12, 144)
+    network2 = Network("SigFox", True, 100, 12, 144)
     network3 = Network("LTE-M", True, 10, 12, 144)
 #    mnm = multi_network_management()
     mnm.add_msgflow(falld)
@@ -439,7 +469,9 @@ def main():
     rtc.ntp_sync("pool.ntp.org")
     rtc.ntp_sync("pool.ntp.org")
     s_lora = connect_lora_otaa()
+    print(type(s_lora))
     s_sigfox = connect_sigfox()
+    print(type(s_sigfox))    
     if not wlan.isconnected():
         connect_wifi(WIFI_SSID, WIFI_PASS)
     if wlan.isconnected():
