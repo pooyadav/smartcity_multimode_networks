@@ -200,7 +200,6 @@ def read_uart():
                 new_line = ["\n", "\r"]
                 if byte is not None:
                     if byte not in new_line:
-#                        print("Len of byte is " + str(len(byte)))
                         if len(byte) == 1:
                             ":".join("{:02x}".format(ord(c)) for c in str(byte))
                         byte = byte.decode('UTF-8')
@@ -214,6 +213,8 @@ def read_uart():
                     msglen = int(temp2[2])
                     size = msglen
             except:
+                print("Len of byte is " + str(len(byte)))
+                print("Troubling byte is " + str(byte))
                 print("Keyboard Interrupt")
                 raise
 
@@ -295,7 +296,7 @@ def check_connection(msg_array, sock_lora, sock_sigfox):
 #    connected_lte = lte.isconnected()
     connected_lte = False
     connected_lora = lora.has_joined()
-    print("Lora is " + str(connected_lora) + " Wi-Fi is " + str(connected_wifi) + "LTE-NB-IoT is " + str(connected_lte))
+    print("Lora is " + str(connected_lora) + " | Wi-Fi is " + str(connected_wifi) + " | LTE-NB-IoT is " + str(connected_lte))
 
     # Check the allocated bin name and if the network interface is connected, send the message
     if bin_name == "Wi-Fi" and connected_wifi:
@@ -307,8 +308,9 @@ def check_connection(msg_array, sock_lora, sock_sigfox):
         print("Data on LTE")
         post_var(msg, "lte", msgflow_name)
     # Checking if Lora is connected + We have the socket instance
-    elif bin_name == "LoRaWAN" and connected_lora and isinstance(sock_lora, socket):
+    elif bin_name == "LoRaWAN" and connected_lora and sock_lora is not None:
         ## Send data using lora, Trimming the payload as of now
+        print("Trying sending on Lora " + str(type(sock_lora)))
         if len(msg) > MAX_LORA_PAYLOAD:
             msg = msg[:MAX_LORA_PAYLOAD]
         sock_lora.send(msg)
@@ -316,7 +318,8 @@ def check_connection(msg_array, sock_lora, sock_sigfox):
         uart_write(ack_msg)
         print("Data on Lora")
     # If allocated bin is Sigfox and we have the socket instance of sigfox
-    elif bin_name == "SigFox" and isinstance(sock_sigfox, socket):
+    elif bin_name == "SigFox" and sock_sigfox is not None:
+        print("Trying sending on Lora " + str(type(sock_sigfox)))
         # Send only important data on SigFox (12bytes)
         if len(msg) > 12:
             # If data is greater than 12 bytes, trim it as of now
@@ -351,8 +354,8 @@ def post_var(msg, medium, msgflow_name):
         raise
     return False
 
-def check_allocations():
-    """ Setting up the message flows and the networks """
+def define_msgflows():
+    """ A function to define the Message Flows """
 
     falld = MessageFlow("Fall Detection", 0, 1000, 10)
     falld.set_crit_level(1, 40, 20)
@@ -380,6 +383,18 @@ def check_allocations():
     enermon = MessageFlow("Energy Usage", 0, 40, 3600)
 
 ## Defining Network Interface mnm is multi network management object and defined globally as of now ##
+# Add the Message Flows
+    mnm.add_msgflow(falld)
+    mnm.add_msgflow(healthm)
+    mnm.add_msgflow(bodyt)
+    mnm.add_msgflow(bedsens)
+    mnm.add_msgflow(bathsens)
+    mnm.add_msgflow(kitsens)
+    mnm.add_msgflow(frontsens)
+    mnm.add_msgflow(enermon)
+
+def define_networks():
+    """ Define the Networks """
 
     # Let's say Wi-Fi network  has 8000 bps bandwidth
     # Just because Wi-Fi disconnects sometimes, even it is present and connected
@@ -405,30 +420,31 @@ def check_allocations():
             wlan_available = False
 
     # Adding Lora to the Network
+    # The concept here is if Lora is available, use LoRa
+    # If Lora is not avaiable and the radio is free, use sigfox
     if lora.has_joined():
         print("Adding LoRaWAN to Network")
 #        print(str(MAX_LORA_PAYLOAD), str(MAX_LORA_BANDWIDTH))
         net_lora = Network("LoRaWAN", True, MAX_LORA_BANDWIDTH, MAX_LORA_PAYLOAD, 144)
         mnm.add_network(net_lora)
-        
-    # Adding Sigfox to the network
-    net_sigfox = Network("SigFox", True, 100, 12, 144)
-    mnm.add_network(net_sigfox)
+    else:
+        # Adding Sigfox to the network
+        net_sigfox = Network("SigFox", True, 0, 12, 144)
+        mnm.add_network(net_sigfox)
 
-    # Adding LTE to the network only if Wi-Fi is not available
+    # Adding LTE to the network only if Wi-Fi is not available because of the network interface
     if not wlan_available:
-        net_lte = Network("LTE-M", True, 10, 12, 144)
+        net_lte = Network("LTE-M", True, 0, 12, 144)
         mnm.add_network(net_lte)
 
-# Add the Message Flows 
-    mnm.add_msgflow(falld)
-    mnm.add_msgflow(healthm)
-    mnm.add_msgflow(bodyt)
-    mnm.add_msgflow(bedsens)
-    mnm.add_msgflow(bathsens)
-    mnm.add_msgflow(kitsens)
-    mnm.add_msgflow(frontsens)
-    mnm.add_msgflow(enermon)
+
+def check_allocations():
+    """ Setting up the message flows and the networks """
+
+    # Define the msgflows
+    define_msgflows()
+    # Define the Networks
+    define_networks()
 
 # Setting the parameters for Bin Packing Algo
     mnm.set_decreasing(False)
@@ -499,18 +515,18 @@ def main():
     rtc.ntp_sync("pool.ntp.org")
     # Connect to the lora and save the socket as sock_lora
     sock_lora = connect_lora_otaa()
-    if not isinstance(sock_lora, socket):
+    if sock_lora is None:
         print("ERROR: Lora socket not returned")
     sock_sigfox = connect_sigfox()
-    if not isinstance(sock_sigfox, socket):
+    if sock_sigfox is None:
         print("ERROR: Sigfox socket not returned")
 
-    # Although we connect the Wi-Fi, for some reason it gets disconnected, so just checking    
+    # Although we connect the Wi-Fi, for some reason it gets disconnected, so just checking
     if not wlan.isconnected():
         connect_wifi(WIFI_SSID, WIFI_PASS)
     if wlan.isconnected():
         print("Wi-Fi is connected")
-    
+
     # Allocate the Message Flows defined in the function to the Network Bin
     check_allocations()
 
@@ -529,5 +545,4 @@ def main():
 
 
 if __name__ == "__main__":
-""" Call the main function """
     main()
