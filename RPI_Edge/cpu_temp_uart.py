@@ -27,6 +27,56 @@ list_threads = []
 # Stores MsgFlow Name and how many packets has been sent and ack received
 stats = dict()
 
+def read_socket(sock):
+
+    while True:
+        data = ""
+        size = len(data)
+
+        while True:
+            try:
+                byte = sock.recv(1024)
+                new_line = ["\n", "\r"]
+                if byte is not None:
+                    if byte not in new_line:
+                        print("Len of byte is " + str(len(byte)))
+                        if len(byte) == 1:
+                            ":".join("{:02x}".format(ord(c)) for c in str(byte))
+                        byte = byte.decode('UTF-8')
+                        data += byte
+                if data.startswith(':ML:'):
+                #Setting ML length to be in format of :ML:500
+                    temp = data.split(",", 1)
+                    temp2 = temp[0].split(":")
+                    msglen = int(temp2[2])
+                    size = msglen
+            except:
+                print("Keyboard Interrupt")
+                raise
+
+            if not data:
+                if verbose > 0:
+                    print("[Receive Error] Upstream connection is gone", file=sys.stderr)
+                return
+            # Newline terminates the read request
+            if data.endswith("\n"):
+                break
+            # Sometimes a newline is missing at the end
+            # If this round has the same data length as previous, we're done
+            if size == len(data):
+                break
+            size = len(data)
+        # Remove trailing newlines
+        if data.startswith(':ML:'):
+        #Setting ML length to be in format of :ML:500
+            temp = data.split(",", 1)
+            data = temp[1]
+            data = data.rstrip("\r\n")
+            data = data.rstrip("\n")
+#        print("Final Message from read_uart is " + data)
+        return data.encode("UTF-8")
+
+
 def stop_all_threads():
     """ Function to stop the active threads, signal event.set and perform thread.join """
     global list_threads
@@ -74,15 +124,48 @@ def read_mfe(mfea):
 
 def create_stats(msgflow_name):
     """ Function to create a entry in to the stats dict for MsgFlow Name with sent and recv. """
-    sent_recv = {'sent': 0, 'recv': 0}
+    sent_recv = {'sent': 0, 'recv': 0, 'error_na': 0}
     if msgflow_name not in stats.keys():
         stats[msgflow_name] = sent_recv
+
+def error_message(msgflow_name):
+    msgflow_name = msgflow_name.rstrip("\n")
+    if '\n' in msgflow_name:
+        msg_flows = msgflow_name.split("\n")
+    else:
+        msg_flows = []
+        msg_flows.append(msgflow_name)
+
+    # There might be a case where two ERROR message are sent simulantously in that case
+    # message would contain 'ERROR:Kitchen Sensor\n:ML:26,ACK:Bathroom Sensor' So,
+    # we remove :ML:
+    for i in range(0, len(msg_flows)):
+        if ":ML:" in msg_flows[i]:
+            msg_flows[i] = msg_flows[i].split(",", 1)[1]
+
+    for item in msg_flows:
+        item_v = item.split(":")
+        item_v = item_v[1]
+        if item_v in stats.keys():
+            stats[item_v]["error_na"] = stats[item_v]["error_na"] + 1
+
+
 
 def ack_message(msgflow_name):
     """ Function to process the ACK message which is in the format ACK:Body Temperature """
     msgflow_name = msgflow_name.rstrip("\n")
     if '\n' in msgflow_name:
         msg_flows = msgflow_name.split("\n")
+    else:
+        msg_flows = []
+        msg_flows.append(msgflow_name)
+
+    # There might be a case where two ACK message are sent simulantously in that case
+    # message would contain 'ACK:Kitchen Sensor\n:ML:26,ACK:Bathroom Sensor' So,
+    # we remove :ML:
+    for i in range(0, len(msg_flows)):
+        if ":ML:" in msg_flows[i]:
+            msg_flows[i] = msg_flows[i].split(",", 1)[1]
 
     for item in msg_flows:
         item_v = item.split(":")
@@ -118,7 +201,8 @@ def connect_to_uart():
         for sock in readable:
             # Incoming message from UART
             if sock == s:
-                data = sock.recv(4096)
+                data = read_socket(sock)
+#                data = sock.recv(4096)
                 print(data)
                 if not data:
                     print('\nDisconnected from server')
@@ -152,6 +236,10 @@ def connect_to_uart():
                     # If STATS print the stats    
                     if temp.startswith('STATS'):
                         print(stats)
+                    if temp.startswith('ERROR:'):
+                        msgflow_name = temp
+                        error_message(msgflow_name)
+                    
 
         # Writing messages to UART
         for sock in writable:
