@@ -41,14 +41,20 @@ def read_socket(sock):
                 if byte is not None:
                     if byte not in new_line:
 #                        print("Len of byte is " + str(len(byte)))
+#                       Trying to understand what is one byte sometimes received for debugging
                         if len(byte) == 1:
                             ":".join("{:02x}".format(ord(c)) for c in str(byte))
                         byte = byte.decode('UTF-8')
                         data += byte
-                if data.startswith(':ML:'):
+                # Checking if new message! Starts with :ML: Message Length
                 #Setting ML length to be in format of :ML:500
+                if data.startswith(':ML:'):
+                    # Extracting the message length by splitting by ,
+                    # 1 is for splitting into only two part, we are interested in first part
                     temp = data.split(",", 1)
+                    # Splitting again ":ML:" by :
                     temp2 = temp[0].split(":")
+                    # Taking the second part that is 500 in :ML:500
                     msglen = int(temp2[2])
                     size = msglen
             except:
@@ -59,16 +65,17 @@ def read_socket(sock):
                 print("ERROR: No data received")
                 return False
             # Newline terminates the read request
+            # Assumption is message ends with newline and the message is completely received
             if data.endswith("\n"):
                 break
-            # Sometimes a newline is missing at the end
-            # If this round has the same data length as previous, we're done
+            # Sometimes we might not have received the full message
+            # Checking if the size of message received till now is equivalent to specified in ML.
             if size == len(data):
                 break
             size = len(data)
-        # Remove trailing newlines
+        # Remove trailing newlines from the message received
         if data.startswith(':ML:'):
-        #Setting ML length to be in format of :ML:500
+        #Removing the header :ML:500
             temp = data.split(",", 1)
             data = temp[1]
             data = data.rstrip("\r\n")
@@ -90,7 +97,7 @@ def stop_all_threads():
     event.clear()
 
 
-def read_mfe(mfea):
+def read_mfea(mfea):
     """ Function to read MFE Allocation in the below format, extract each MF Allocation and create a thread to send message to UART """
     # Assuming MFE is in format:
     #MFEA:[{'PS': 40, 'N': 'SigFox', 'MF': 'Energy Usage', 'PE': 3600, 'CL': 0}, {'PS': 30, 'N': 'SigFox', 'MF': 'Body Temperature', 'PE': 30, 'CL': 0}, {'PS': 40000, 'N': 'Wi-Fi', 'MF': 'Bedroom Sensor', 'PE': 10, 'CL': 0}, {'PS': 80, 'N': 'LoRaWAN', 'MF': 'Bathroom Sensor', 'PE': 10, 'CL': 0}, {'PS': 40000, 'N': 'Wi-Fi', 'MF': 'Kitchen Sensor', 'PE': 10, 'CL': 0}, {'PS': 10, 'N': 'SigFox', 'MF': 'Front Door Sensor', 'PE': 30, 'CL': 1}, {'PS': 1000, 'N': 'LoRaWAN', 'MF': 'Fall Detection', 'PE': 10, 'CL': 0}, {'PS': 80, 'N': 'LoRaWAN', 'MF': 'Heart Monitoring', 'PE': 10, 'CL': 1}]
@@ -113,7 +120,11 @@ def read_mfe(mfea):
         print("Message Flow: " + msgflow_name + " of crit level " + str(msgflow_crit_level) + " Period " + str(msgflow_period))
         # Msgflow payload, currently A * msgpayload_size. Hopefully, real payload later
         # Let's say we create msgflow payload here
-        msgflow_payload = "A" * msgflow_payload_size
+#        msgflow_payload = "A" * msgflow_payload_size
+        # Generating Payload to identify Message Flow Name; If Message Flow name is "Energe Usage", payload pattern will be "EnergeyUsageEnergyUsage"
+        msgflow_payload = msgflow_name * msgflow_payload_size
+        msgflow_payload = msgflow_payload.replace(" ", "")
+        msgflow_payload = msg[:msgflow_payload_size]
         # Tuple for the thread
         args_tuple = [event, msgflow_name, msgflow_crit_level, msgflow_period, msgflow_payload]
         x = threading.Thread(target=write_data_uart, args=args_tuple)
@@ -123,16 +134,21 @@ def read_mfe(mfea):
 
 
 def create_stats(msgflow_name):
-    """ Function to create a entry in to the stats dict for MsgFlow Name with sent and recv. """
+    """ Function to create a entry in to the stats dict for MsgFlow Name with sent and recv, error_na and error_nd """
+    # error_na is for Not Allocated, error_nd is not delivered
     sent_recv = {'sent': 0, 'recv': 0, 'error_na': 0}
     if msgflow_name not in stats.keys():
         stats[msgflow_name] = sent_recv
 
 def error_message(msgflow_name):
+    """ Function to received the error message """
     msgflow_name = msgflow_name.rstrip("\n")
+    # If we receive multiple error message stacked
+    # Format ERROR:MSGFLOW_NAME:NOT_ALLOCATED
     if '\n' in msgflow_name:
         msg_flows = msgflow_name.split("\n")
     else:
+        # If we received only a single error message
         msg_flows = []
         msg_flows.append(msgflow_name)
 
@@ -176,16 +192,20 @@ def ack_message(msgflow_name):
 
 def write_data_uart(event, msgflow_name, msgflow_crit_level, msgflow_period, msgflow_payload):
     """ Writing data on the UART with msgflow_name, msgflow_crit_level, msgflow_payload """
+    # Global varible event to stop the threads
+    global event
     # Let's say we want to send two messages
     for i in range(0, 2):
 #    while True:
-        # Check for Global Variable if threads need to stop
+        # Check for event if threads need to stop
         if event.isSet():
             break
+        # Ending the message with newline
         msg_uart = msgflow_name + "," + str(msgflow_crit_level) + "," + msgflow_payload + "\n"
         # Add the message into the message queue for writing into UART
         message_queues[s].put(msg_uart)
         print("Message written, sleeping")
+        # Update the STATS sent
         stats[msgflow_name]["sent"] = stats[msgflow_name]["sent"] + 1
         # Wait for the msgflow_period to send the next message
         event.wait(msgflow_period)
@@ -202,31 +222,26 @@ def connect_to_uart():
             # Incoming message from UART
             if sock == s:
                 data = read_socket(sock)
-#                data = sock.recv(4096)
-                print(data)
+#                print(data)
                 if not data:
                     print('\nDisconnected from server')
                     sys.exit()
                 else:
 #                    print(len(data))
+                    # We should receive the data in utf-8 encoded, still testing if string
                     if isinstance(data, str):
                         temp = data
                     else:
                         temp = data.decode('utf-8', errors='replace')
-                        # buf = ""
-                        # if '\n' in temp or '\r' in temp:
-                        #     buf = buf + temp
-                        #     buf.strip()
-                        #     print(buf)
-                        # else:
-                        #     buf = buf + temp
 
-                    # If Message Flow Allocation Message is received
+                    # If Message Flow Allocation Message is received; MFEA message format is
                     # MFEA:[{'PS': 40, 'N': 'SigFox', 'MF': 'Energy Usage', 'PE': 3600, 'CL': 0}]
+                    # PS is payload size, N is network assigned, MF is Message Flow Name, PE is Period and CL is criticality level
+                    # Checking for the proper format and it ends with ]. It is a list of dict
                     if temp.startswith('MFEA:') and temp.endswith("]"):
-                        # Call the read_mfe function
+                        # Remove the MFEA and send the rest to read_mfe function
                         temp2 = temp.split(":", 1)
-                        read_mfe(temp2[1])
+                        read_mfea(temp2[1])
 
                     # If ACK of Message Flow sent message is received
                     # ACK:Energy Usage
@@ -256,12 +271,14 @@ def connect_to_uart():
                 print_msg = temp[0] + " " + temp[1]
                 print("sending " + str(print_msg.rstrip()) + " to " + str(s.getpeername()))
 
+                # Adding the header to the message
                 msg_len = len(next_msg)
-                # 5 == 4 for :ML:
+                # 5 == 4 for :ML: and 1 for , ?
                 len_of_header = 5 + len(str(msg_len))
                 uart_msg = ":ML:" + str(msg_len + len_of_header) + "," + next_msg
                 uart_msg = uart_msg.encode('utf-8')
                 s.send(uart_msg)
 
 if __name__ == '__main__':
+    """ Main function to simulate the Message Flows received and send the to UART for FiPY processing """
     connect_to_uart()
