@@ -124,7 +124,7 @@ def read_mfea(mfea):
         # Generating Payload to identify Message Flow Name; If Message Flow name is "Energe Usage", payload pattern will be "EnergeyUsageEnergyUsage"
         msgflow_payload = msgflow_name * msgflow_payload_size
         msgflow_payload = msgflow_payload.replace(" ", "")
-        msgflow_payload = msg[:msgflow_payload_size]
+        msgflow_payload = msgflow_payload[:msgflow_payload_size]
         # Tuple for the thread
         args_tuple = [event, msgflow_name, msgflow_crit_level, msgflow_period, msgflow_payload]
         x = threading.Thread(target=write_data_uart, args=args_tuple)
@@ -136,12 +136,13 @@ def read_mfea(mfea):
 def create_stats(msgflow_name):
     """ Function to create a entry in to the stats dict for MsgFlow Name with sent and recv, error_na and error_nd """
     # error_na is for Not Allocated, error_nd is not delivered
-    sent_recv = {'sent': 0, 'recv': 0, 'error_na': 0}
+    sent_recv = {'sent': 0, 'recv': 0, 'error_na': 0, 'error_nd': 0}
     if msgflow_name not in stats.keys():
         stats[msgflow_name] = sent_recv
 
 def error_message(msgflow_name):
     """ Function to received the error message """
+    # Sample Message: ERROR:Kitchen Sensor:NOT_ALLOCATED
     msgflow_name = msgflow_name.rstrip("\n")
     # If we receive multiple error message stacked
     # Format ERROR:MSGFLOW_NAME:NOT_ALLOCATED
@@ -161,14 +162,19 @@ def error_message(msgflow_name):
 
     for item in msg_flows:
         item_v = item.split(":")
-        item_v = item_v[1]
-        if item_v in stats.keys():
-            stats[item_v]["error_na"] = stats[item_v]["error_na"] + 1
+        item_msg_flow = item_v[1]
+        item_v_desc = item_v[2]
+        if item_msg_flow in stats.keys():
+            if item_v_desc is "NOT_DELIVERED":
+                stats[item_v]["error_nd"] = stats[item_v]["error_nd"] + 1
+            if item_v_desc is "NOT_ALLOCATED":
+                stats[item_v]["error_na"] = stats[item_v]["error_na"] + 1 
 
 
 
 def ack_message(msgflow_name):
     """ Function to process the ACK message which is in the format ACK:Body Temperature """
+    #Sample Message : b'ACK:Energy Usage'
     msgflow_name = msgflow_name.rstrip("\n")
     if '\n' in msgflow_name:
         msg_flows = msgflow_name.split("\n")
@@ -193,7 +199,7 @@ def ack_message(msgflow_name):
 def write_data_uart(event, msgflow_name, msgflow_crit_level, msgflow_period, msgflow_payload):
     """ Writing data on the UART with msgflow_name, msgflow_crit_level, msgflow_payload """
     # Global varible event to stop the threads
-    global event
+#    global event
     # Let's say we want to send two messages
     for i in range(0, 2):
 #    while True:
@@ -204,7 +210,7 @@ def write_data_uart(event, msgflow_name, msgflow_crit_level, msgflow_period, msg
         msg_uart = msgflow_name + "," + str(msgflow_crit_level) + "," + msgflow_payload + "\n"
         # Add the message into the message queue for writing into UART
         message_queues[s].put(msg_uart)
-        print("Message written, sleeping")
+#        print("Message written, sleeping")
         # Update the STATS sent
         stats[msgflow_name]["sent"] = stats[msgflow_name]["sent"] + 1
         # Wait for the msgflow_period to send the next message
