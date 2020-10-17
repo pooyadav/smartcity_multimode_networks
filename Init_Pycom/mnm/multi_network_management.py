@@ -285,7 +285,8 @@ class multi_network_management():
             print("Element " + element.get_id() + " doesn't fit in to Network Bin " + self.get_largest_bin().get_id())
             # Check if the element is present in list_unallocated_elements; If present don't add
             if not self.is_in_list_unallocated(element):
-                self.list_unallocated_elements.append(copy.copy(element))
+#                self.list_unallocated_elements.append(copy.copy(element))
+                self.list_unallocated_elements.append(element)
 
         else:
             current_bin = None
@@ -321,7 +322,8 @@ class multi_network_management():
             # Element doesn't fit into any bin
             if ((matching_bin is None) or not element.fits_into(DoubleValueSize(matching_bin.get_free_space()))):
                 if not self.is_in_list_unallocated(element):
-                    self.list_unallocated_elements.append(copy.copy(element))
+#                    self.list_unallocated_elements.append(copy.copy(element))
+                    self.list_unallocated_elements.append(element)
                     # temp_list = []
                     # temp_list.append(element)
                     # self.list_unallocated_elements.extend(temp_list)
@@ -393,7 +395,7 @@ class multi_network_management():
 
     def get_network_bin(self, msgflow_name, msgflow_crit_level):
         for item in self.list_allocations:
-            print("Testing " + msgflow_name + " with " + str(msgflow_crit_level) + " against " + item.flow.get_name() + " " + str(item.get_crit_level()))
+#            print("Testing " + msgflow_name + " with " + str(msgflow_crit_level) + " against " + item.flow.get_name() + " " + str(item.get_crit_level()))
             if item.flow.get_name() == msgflow_name and item.get_crit_level() == msgflow_crit_level:
                 return item.net.get_name()
         # If not found, probably the msg flow is not allocated.
