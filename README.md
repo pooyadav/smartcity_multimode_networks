@@ -1,6 +1,6 @@
 # smartcity_multimode_networks
 
-The FiPY generates the MFEA message (a list of dict)
+The FiPY generates the MFEA (Message Flow Element Allocation) message (a list of dict)
 
 ```json
 "[{'PS': 40, 'N': 'LoRaWAN', 'PE': 3600, 'MF': 'Energy Usage', 'CL': 0}, {'PS': 30, 'N': 'LoRaWAN', 'PE': 30, 'MF': 'Body Temperature', 'CL': 0}, {'PS': 40000, 'N': 'LoRaWAN', 'PE': 10, 'MF': 'Front Door Sensor', 'CL': 0}, {'PS': 40000, 'N': 'Wi-Fi', 'PE': 10, 'MF': 'Kitchen Sensor', 'CL': 0}, {'PS': 80, 'N': 'LoRaWAN', 'PE': 10, 'MF': 'Bathroom Sensor', 'CL': 0}, {'PS': 40000, 'N': 'Wi-Fi', 'PE': 10, 'MF': 'Bedroom Sensor', 'CL': 0}, {'PS': 1000, 'N': 'LoRaWAN', 'PE': 10, 'MF': 'Fall Detection', 'CL': 0}, {'PS': 1000, 'N': 'LoRaWAN', 'PE': 5, 'MF': 'Heart Monitoring', 'CL': 0}]"
