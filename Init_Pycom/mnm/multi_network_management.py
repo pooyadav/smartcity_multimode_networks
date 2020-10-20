@@ -346,7 +346,7 @@ class multi_network_management():
 
     def print_unallocated_elements(self):
         """ Print Unallocated MFE """
-        print("Un-allocated MFE:")
+        print("\nUn-allocated MFE:")
         for mfe in self.list_unallocated_elements:
             print(mfe.to_string())
 
@@ -399,6 +399,15 @@ class multi_network_management():
                 return item.net.get_name()
         # If not found, probably the msg flow is not allocated.
         return None
+
+    def print_all_networkbins(self):
+        print("\nCurrent Network Bins are")
+        for item in self.list_bins:
+            name = item.get_id()
+            bandwidth = item.get_network().get_bandwidth()
+            print(name + " with a bandwidth of " + str(bandwidth) + " bps")
+
+
 
 
 
@@ -455,7 +464,7 @@ def main():
     mnm.perform_inverted_allocation()
     mnm.print_all_allocation()
     mnm.print_unallocated_elements()
-    print("Allocated Percentage is " + str(mnm.get_allocated_percentage()))
+    print("\nAllocated Percentage is " + str(mnm.get_allocated_percentage()))
     print("Average Criticality is " + str(mnm.get_avg_criticality()))
     print(get_network_bin("Energy Usage", 0))
 
