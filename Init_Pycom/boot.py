@@ -357,30 +357,32 @@ def post_var(msg, medium, msgflow_name):
 def define_msgflows():
     """ A function to define the Message Flows """
 
-    falld = MessageFlow("Fall Detection", 0, 1000, 10)
-    falld.set_crit_level(1, 40, 20)
+    MUL_CRIT_0 = 100000
+    MUL_CRIT_1 = 5000
+    falld = MessageFlow("Fall Detection", 0, 1000 * MUL_CRIT_0, 10)
+    falld.set_crit_level(1, 40 * MUL_CRIT_1, 20)
     falld.set_crit_level(2, 10, 60)
 
-    healthm = MessageFlow("Heart Monitoring", 0, 1000, 5)
-    healthm.set_crit_level(1, 80, 10)
+    healthm = MessageFlow("Heart Monitoring", 0, 1000 * MUL_CRIT_0, 5)
+    healthm.set_crit_level(1, 80 * MUL_CRIT_1, 10)
     healthm.set_crit_level(2, 10, 20)
 
-    bodyt = MessageFlow("Body Temperature", 0, 30, 30)
-    bodyt.set_crit_level(1, 10, 120)
+    bodyt = MessageFlow("Body Temperature", 0, 30 * MUL_CRIT_0, 30)
+    bodyt.set_crit_level(1, 10 * MUL_CRIT_1, 120)
 
-    bedsens = MessageFlow("Bedroom Sensor", 0, 40000, 10)
-    bedsens.set_crit_level(1, 10, 30)
+    bedsens = MessageFlow("Bedroom Sensor", 0, 40000 * MUL_CRIT_0, 10)
+    bedsens.set_crit_level(1, 10 * MUL_CRIT_1, 30)
 
-    bathsens = MessageFlow("Bathroom Sensor", 0, 80, 10)
-    bathsens.set_crit_level(1, 10, 30)
+    bathsens = MessageFlow("Bathroom Sensor", 0, 80 * MUL_CRIT_0, 10)
+    bathsens.set_crit_level(1, 10 * MUL_CRIT_1, 30)
 
-    kitsens = MessageFlow("Kitchen Sensor", 0, 40000, 10)
-    kitsens.set_crit_level(1, 10, 30)
+    kitsens = MessageFlow("Kitchen Sensor", 0, 40000 * MUL_CRIT_0, 10)
+    kitsens.set_crit_level(1, 10 * MUL_CRIT_1, 30)
 
-    frontsens = MessageFlow("Front Door Sensor", 0, 40000, 10)
-    frontsens.set_crit_level(1, 10, 30)
+    frontsens = MessageFlow("Front Door Sensor", 0, 40000 * MUL_CRIT_0, 10)
+    frontsens.set_crit_level(1, 10 * MUL_CRIT_1, 30)
 
-    enermon = MessageFlow("Energy Usage", 0, 40, 3600)
+    enermon = MessageFlow("Energy Usage", 0, 40 * MUL_CRIT_0, 3600)
 
 ## Defining Network Interface mnm is multi network management object and defined globally as of now ##
 # Add the Message Flows
@@ -403,7 +405,8 @@ def define_networks():
         print("Adding Wi-Fi to Network")
         # Defining the network, Refer network_algo.py / Network Class
         # Network takes Network_Name, Availablity, Bandwidth, Max Payload, Max number of messages
-        net_wifi = Network("Wi-Fi", True, 8000, -1, -1)
+#        net_wifi = Network("Wi-Fi", True, 8000, -1, -1)
+        net_wifi = Network("Wi-Fi", True, 750000, -1, -1)
         # Adding the network to the Network Bins
         mnm.add_network(net_wifi)
     else:
@@ -411,7 +414,8 @@ def define_networks():
         connect_wifi(WIFI_SSID, WIFI_PASS)
         if wlan.isconnected():
             print("Adding Wi-Fi to Network")
-            net_wifi = Network("Wi-Fi", True, 8000, -1, -1)
+#            net_wifi = Network("Wi-Fi", True, 8000, -1, -1)
+            net_wifi = Network("Wi-Fi", True, 750000, -1, -1)
             mnm.add_network(net_wifi)
         else:
             # If we are unable to connect to Wi-Fi, then we switch to LTE
@@ -429,12 +433,12 @@ def define_networks():
         mnm.add_network(net_lora)
     else:
         # Adding Sigfox to the network
-        net_sigfox = Network("SigFox", True, 0, 12, 144)
+        net_sigfox = Network("SigFox", True, 100, 12, 144)
         mnm.add_network(net_sigfox)
 
     # Adding LTE to the network only if Wi-Fi is not available because of the network interface
     if not wlan_available:
-        net_lte = Network("LTE-M", True, 0, 12, 144)
+        net_lte = Network("LTE-M", True, 55000, -1, -1)
         mnm.add_network(net_lte)
 
 
@@ -460,6 +464,7 @@ def check_allocations():
 
 # Print Unallocated Message Flow Elements
     mnm.print_unallocated_elements()
+    mnm.print_all_networkbins()
     print("Allocated Percentage is " + str(mnm.get_allocated_percentage()))
     print("Average Criticality is " + str(mnm.get_avg_criticality()))
 
