@@ -1,364 +1,365 @@
 """ Function definition for connecting different networks"""
 #import urandom
-import os
-import sys
-import struct
-import socket
+# import os
+# import sys
+# import struct
+# import socket
 import logging
-from network import WLAN
-from network import Sigfox
-from network import LTE
-from network import LoRa
-#from umqtt import MQTTClient
-import ubinascii
-import urequests as requests
-import utime
-import _thread
-import machine
-from machine import UART
+# from network import WLAN
+# from network import Sigfox
+# from network import LTE
+# from network import LoRa
+# #from umqtt import MQTTClient
+# import ubinascii
+# import urequests as requests
+#import utime
+import time
+# import _thread
+# import machine
+# from machine import UART
 from mnm.multi_network_management import multi_network_management
 from mnm.msgflow import MessageFlow
 from mnm.network_algo import Network
-rtc = machine.RTC()
-# Testing logging
-logging.basicConfig(level=logging.WARNING)
+# rtc = machine.RTC()
+# # Testing logging
+logging.basicConfig(level=logging.ERROR)
 log = logging.getLogger("test")
-# UART Definitions
-uart = UART(1, 9600)                         # init with given baudrate
-uart.init(9600, bits=8, parity=None, stop=1) # init with given parameters
+# # UART Definitions
+# uart = UART(1, 9600)                         # init with given baudrate
+# uart.init(9600, bits=8, parity=None, stop=1) # init with given parameters
 mnm = multi_network_management()
 
 
 
 
-# Wifi_Creds
-WIFI_SSID = "BTHub6-WK6Q"
-WIFI_PASS = "9XGDxfLnPvEq"
-# Lora OTAA Key
-# create an OTAA authentication parameters
-APP_EUI = ubinascii.unhexlify('70B3D57ED0030B7E')
-APP_KEY = ubinascii.unhexlify('43FB05A51AA73EC05511F936279DEB4E')
-MAX_LORA_PAYLOAD = 0
-MAX_LORA_BANDWIDTH = 0
+# # Wifi_Creds
+# WIFI_SSID = "BTHub6-WK6Q"
+# WIFI_PASS = "9XGDxfLnPvEq"
+# # Lora OTAA Key
+# # create an OTAA authentication parameters
+# APP_EUI = ubinascii.unhexlify('70B3D57ED0030B7E')
+# APP_KEY = ubinascii.unhexlify('43FB05A51AA73EC05511F936279DEB4E')
+# MAX_LORA_PAYLOAD = 0
+# MAX_LORA_BANDWIDTH = 0
 
 
-#The code is taken from https://docs.pycom.io/chapter/tutorials/all/wlan.html.
-wlan = WLAN(mode=WLAN.STA)
-sigfox = Sigfox(mode=Sigfox.SIGFOX, rcz=Sigfox.RCZ1)
-#lora = LoRa(mode=LoRa.LORAWAN, region=LoRa.EU868,tx_power=14, sf=12)
-lora = LoRa(mode=LoRa.LORAWAN, region=LoRa.EU868)
-lte = LTE()
+# #The code is taken from https://docs.pycom.io/chapter/tutorials/all/wlan.html.
+# wlan = WLAN(mode=WLAN.STA)
+# sigfox = Sigfox(mode=Sigfox.SIGFOX, rcz=Sigfox.RCZ1)
+# #lora = LoRa(mode=LoRa.LORAWAN, region=LoRa.EU868,tx_power=14, sf=12)
+# lora = LoRa(mode=LoRa.LORAWAN, region=LoRa.EU868)
+# lte = LTE()
 
-def uart_write(msg):
-    """ Function to add ML and Newline as header """
-    msg_len = len(msg)
-    # 5 == 4 for :ML:
-    len_of_header = 5 + len(str(msg_len))
-    uart_msg = ":ML:" + str(msg_len + len_of_header) + "," + msg + "\n"
-    uart_msg = uart_msg.encode('utf-8')
-    uart.write(uart_msg)
-
-
-# A function has been defined to be called in the main file to make it shorter
-def connect_wifi(ssid, passwifi):
-    """ Connect WiFi using provided ssid, password"""
-
-    log.debug("Trying to connect to %s", ssid)
-    # wlan.antenna(WLAN.EXT_ANT)
-    nets = wlan.scan()
-    for net in nets:
-        log.debug(net.ssid)
-        if net.ssid == ssid:
-            log.debug("Wi-Fi network found")
-            wlan.connect(net.ssid, auth=(net.sec, passwifi), timeout=10000)
-            while not wlan.isconnected():
-                print('W', end='')
-                utime.sleep(1)
-                machine.idle() # save power while waiting
-            log.debug('WLAN connection succeeded!')
-            return True
-    log.debug("network not found")
-    return False
-
-def connect_sigfox():
-    """ Connect to SigFox and return sigfox and socket"""
-
-# Create a Sigfox socket
-    sock_sigfox = socket.socket(socket.AF_SIGFOX, socket.SOCK_RAW)
-# make the socket blocking
-    sock_sigfox.setblocking(True)
-# Configure it as uplink
-    sock_sigfox.setsockopt(socket.SOL_SIGFOX, socket.SO_RX, False)
-# send some data
-#    sock_sigfox.send("Hello SigFox")
-#    print("Message sent on Sigfox")
-    return sock_sigfox
-
-def connect_lora_otaa():
-    """ Connect to LoRa and return lora and socket via OTAA auth method"""
-    global MAX_LORA_BANDWIDTH
-    global MAX_LORA_PAYLOAD
-    lora.join(activation=LoRa.OTAA, auth=(APP_EUI, APP_KEY), timeout=0)
-
-    # wait until the module has joined the network
-    i = 1
-    while not lora.has_joined():
-        i = i + 1
-        utime.sleep(2.5)
-        print('L', end='')
-        if i == 20:
-            log.debug("Gave up on Lora; Network signal not strong")
-            return None
-
-    log.debug("Finally Joined")
-
-# Print Stats
-    sf = lora.sf()
-    lb = lora.bandwidth()
-    log.debug("Lora.bandwidth is %s", str(lb))
-    log.debug("Lora.sf is %s", str(sf))
-    log.debug("lora.coding_rate is %s", str(lora.coding_rate()))
-    if sf is 7 and lb is 0:
-        lora_max_bitrate = 5470
-        lora_max_payload = 222
-    elif sf is 8 and lb is 0:
-        lora_max_bitrate = 3125
-        lora_max_payload = 222
-    elif sf is 9 and lb is 0:
-        lora_max_bitrate = 1760
-        lora_max_payload = 115
-    elif sf is 10 and lb is 0:
-        lora_max_bitrate = 980
-        lora_max_payload = 51
-    elif sf is 11 and lb is 0:
-        lora_max_bitrate = 440
-        lora_max_payload = 51
-    elif sf is 12 and lb is 0:
-        lora_max_bitrate = 250
-        lora_max_payload = 51
-    MAX_LORA_PAYLOAD = lora_max_payload
-    MAX_LORA_BANDWIDTH = lora_max_bitrate
-
-# create a LoRa socket
-    sock_lora = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
-
-# set the LoRaWAN data rate
-    sock_lora.setsockopt(socket.SOL_LORA, socket.SO_DR, 5)
-
-# make the socket blocking
-# (waits for the data to be sent and for the 2 receive windows to expire)
-    sock_lora.setblocking(True)
-# send some data
-    sock_lora.send(bytes([0x01, 0x02, 0x03]))
-# make the socket non-blocking
-# (because if there's no data received it will block forever...)
-    sock_lora.setblocking(False)
-
-# get any data received (if any...)
-    data = sock_lora.recv(64)
-    log.debug(data)
-    return sock_lora
+# def uart_write(msg):
+#     """ Function to add ML and Newline as header """
+#     msg_len = len(msg)
+#     # 5 == 4 for :ML:
+#     len_of_header = 5 + len(str(msg_len))
+#     uart_msg = ":ML:" + str(msg_len + len_of_header) + "," + msg + "\n"
+#     uart_msg = uart_msg.encode('utf-8')
+#     uart.write(uart_msg)
 
 
-def connect_lora_abp():
-    """ Connect to LoRa and return lora and socket via ABP auth method"""
-# create an ABP authentication params
-    dev_addr = struct.unpack(">l", ubinascii.unhexlify('26001910'))[0]
-    nwk_swkey = ubinascii.unhexlify('6AB31CFB360ACF58F327FC1CAD62F00C')
-    app_swkey = ubinascii.unhexlify('84F85AB9B80943F7CF491D55EDEE1D56')
+# # A function has been defined to be called in the main file to make it shorter
+# def connect_wifi(ssid, passwifi):
+#     """ Connect WiFi using provided ssid, password"""
 
-# join a network using ABP (Activation By Personalization)
-    lora.join(activation=LoRa.ABP, auth=(dev_addr, nwk_swkey, app_swkey))
+#     log.debug("Trying to connect to %s", ssid)
+#     # wlan.antenna(WLAN.EXT_ANT)
+#     nets = wlan.scan()
+#     for net in nets:
+#         log.debug(net.ssid)
+#         if net.ssid == ssid:
+#             log.debug("Wi-Fi network found")
+#             wlan.connect(net.ssid, auth=(net.sec, passwifi), timeout=10000)
+#             while not wlan.isconnected():
+#                 print('W', end='')
+#                 utime.sleep(1)
+#                 machine.idle() # save power while waiting
+#             log.debug('WLAN connection succeeded!')
+#             return True
+#     log.debug("network not found")
+#     return False
 
-# create a LoRa socket
-    s = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
+# def connect_sigfox():
+#     """ Connect to SigFox and return sigfox and socket"""
 
-# set the LoRaWAN data rate
-    s.setsockopt(socket.SOL_LORA, socket.SO_DR, 5)
+# # Create a Sigfox socket
+#     sock_sigfox = socket.socket(socket.AF_SIGFOX, socket.SOCK_RAW)
+# # make the socket blocking
+#     sock_sigfox.setblocking(True)
+# # Configure it as uplink
+#     sock_sigfox.setsockopt(socket.SOL_SIGFOX, socket.SO_RX, False)
+# # send some data
+# #    sock_sigfox.send("Hello SigFox")
+# #    print("Message sent on Sigfox")
+#     return sock_sigfox
 
-# make the socket blocking
-# (waits for the data to be sent and for the 2 receive windows to expire)
-    s.setblocking(True)
+# def connect_lora_otaa():
+#     """ Connect to LoRa and return lora and socket via OTAA auth method"""
+#     global MAX_LORA_BANDWIDTH
+#     global MAX_LORA_PAYLOAD
+#     lora.join(activation=LoRa.OTAA, auth=(APP_EUI, APP_KEY), timeout=0)
 
-# send some data
-    s.send(bytes([0x01, 0x02, 0x03]))
+#     # wait until the module has joined the network
+#     i = 1
+#     while not lora.has_joined():
+#         i = i + 1
+#         utime.sleep(2.5)
+#         print('L', end='')
+#         if i == 20:
+#             log.debug("Gave up on Lora; Network signal not strong")
+#             return None
 
-# make the socket non-blocking
-# (because if there's no data received it will block forever...)
-    s.setblocking(False)
+#     log.debug("Finally Joined")
 
-# get any data received (if any...)
-    data = s.recv(64)
-    log.debug(data)
+# # Print Stats
+#     sf = lora.sf()
+#     lb = lora.bandwidth()
+#     log.debug("Lora.bandwidth is %s", str(lb))
+#     log.debug("Lora.sf is %s", str(sf))
+#     log.debug("lora.coding_rate is %s", str(lora.coding_rate()))
+#     if sf is 7 and lb is 0:
+#         lora_max_bitrate = 5470
+#         lora_max_payload = 222
+#     elif sf is 8 and lb is 0:
+#         lora_max_bitrate = 3125
+#         lora_max_payload = 222
+#     elif sf is 9 and lb is 0:
+#         lora_max_bitrate = 1760
+#         lora_max_payload = 115
+#     elif sf is 10 and lb is 0:
+#         lora_max_bitrate = 980
+#         lora_max_payload = 51
+#     elif sf is 11 and lb is 0:
+#         lora_max_bitrate = 440
+#         lora_max_payload = 51
+#     elif sf is 12 and lb is 0:
+#         lora_max_bitrate = 250
+#         lora_max_payload = 51
+#     MAX_LORA_PAYLOAD = lora_max_payload
+#     MAX_LORA_BANDWIDTH = lora_max_bitrate
 
-def read_uart():
-    """ Function to read UART until newline or the length of message is reached """
+# # create a LoRa socket
+#     sock_lora = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
 
-# While waiting for the message with newline to fully arrive
-    while True:
-        data = ""
-        size = len(data)
+# # set the LoRaWAN data rate
+#     sock_lora.setsockopt(socket.SOL_LORA, socket.SO_DR, 5)
 
-        while True:
-            try:
-                # Read UART
-                byte = uart.readline()
-                new_line = ["\n", "\r"]
-                if byte is not None:
-                    if byte not in new_line:
-                        if len(byte) == 1:
-                            ":".join("{:02x}".format(ord(c)) for c in str(byte))
-                        byte = byte.decode('UTF-8')
-                        data += byte
-                # Check message starting with :ML: (Message Length)
-                if data.startswith(':ML:'):
-                #Setting ML length to be in format of :ML:500
-                # Extract the message length
-                    temp = data.split(",")
-                    temp2 = temp[0].split(":")
-                    msglen = int(temp2[2])
-                    size = msglen
-            except:
-                log.debug("Len of byte is %s", str(len(byte)))
-                log.debug("Troubling byte is %s", str(byte))
-                log.debug("Keyboard Interrupt")
-                raise
+# # make the socket blocking
+# # (waits for the data to be sent and for the 2 receive windows to expire)
+#     sock_lora.setblocking(True)
+# # send some data
+#     sock_lora.send(bytes([0x01, 0x02, 0x03]))
+# # make the socket non-blocking
+# # (because if there's no data received it will block forever...)
+#     sock_lora.setblocking(False)
 
-            if not data:
-                log.debug("ERROR")
-            # Newline terminates the read request
-            if data.endswith("\n"):
-                break
-            # Sometimes a newline is missing at the end
-            # If this round has the same data length as previous, we're done
-            if size == len(data):
-                break
-            size = len(data)
-        # Remove trailing newlines
-        if data.startswith(':ML:'):
-        #Setting ML length to be in format of :ML:500
-        # Remove the header :ML: and send the actual message back
-            temp = data.split(",", 1)
-            data = temp[1]
-            data = data.rstrip("\r\n")
-            data = data.rstrip("\n")
-#        print("Final Message from read_uart is " + data)
-        return data.encode("UTF-8")
+# # get any data received (if any...)
+#     data = sock_lora.recv(64)
+#     log.debug(data)
+#     return sock_lora
 
 
-def connect_uart(sock_lora, sock_sigfox):
-    """ Connect to UART Pins P3/P4 and send data to the cloud"""
-    while True:
-        try:
-            # Read UART continously, if any possible message call read_uart function
-            if uart.any() != 0:
-                uart_msg = read_uart()
-                if uart_msg is not None:
-                    uart_msg = uart_msg.decode("utf-8")
-#                    print("UART Message Type is " + str(type(uart_msg)) + "and Message is" + str(uart_msg) + "!")
-                    # Send the UART message to check_connection function with the lora and sigfox socket
-                    check_connection(uart_msg, sock_lora, sock_sigfox)
-        except:
-            log.debug("Keyboard Interrupt")
-            raise
+# def connect_lora_abp():
+#     """ Connect to LoRa and return lora and socket via ABP auth method"""
+# # create an ABP authentication params
+#     dev_addr = struct.unpack(">l", ubinascii.unhexlify('26001910'))[0]
+#     nwk_swkey = ubinascii.unhexlify('6AB31CFB360ACF58F327FC1CAD62F00C')
+#     app_swkey = ubinascii.unhexlify('84F85AB9B80943F7CF491D55EDEE1D56')
 
-def connect_nbiot():
-    """ Connect to NB-IoT network"""
-    lte.init()
-    lte.attach(band=20, apn="pycom.io")
-    while not lte.isattached():
-        print('A', end='')
-        utime.sleep(0.25)
-    log.debug("LTE: Attached")
-    lte.connect()       # start a data session and obtain an IP address
-    while not lte.isconnected():
-        print('C', end='')
-        utime.sleep(0.25)
-    log.debug("LTE: Connected")
+# # join a network using ABP (Activation By Personalization)
+#     lora.join(activation=LoRa.ABP, auth=(dev_addr, nwk_swkey, app_swkey))
 
-def check_connection(msg_array, sock_lora, sock_sigfox):
-    """ Check which networks are connected and send data via that network """
+# # create a LoRa socket
+#     s = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
 
-    # Splitting the message to get the flow name, crit_level and msg.
-    temp_msg = msg_array.split(",")
-    msgflow_name = temp_msg[0]
-    msgflow_crit_level = temp_msg[1]
-    msg = temp_msg[2]
-    log.debug("%s, %s", msgflow_name, msgflow_crit_level)
+# # set the LoRaWAN data rate
+#     s.setsockopt(socket.SOL_LORA, socket.SO_DR, 5)
 
-    # Figure out which Network Bin is allocated to the Message Flow
-    bin_name = mnm.get_network_bin(msgflow_name, int(msgflow_crit_level))
-    log.debug("Check Network Bin: %s", str(bin_name or 'Not Allocated'))
-    # If Message Flow has not been allocated, send error message message to RPi
-    if bin_name is None:
-        uart_write("ERROR:" + msgflow_name + ":" + "NOT_ALLOCATED")
+# # make the socket blocking
+# # (waits for the data to be sent and for the 2 receive windows to expire)
+#     s.setblocking(True)
 
-    # Again as wifi disconnects, recheck
-    connected_wifi = wlan.isconnected()
-    if connected_wifi is False:
-        connect_wifi(WIFI_SSID, WIFI_PASS)
-        connected_wifi = wlan.isconnected()
+# # send some data
+#     s.send(bytes([0x01, 0x02, 0x03]))
 
-#    connected_lte = lte.isconnected()
-    connected_lte = False
-    connected_lora = lora.has_joined()
-    log.debug("Lora is %s | Wi-Fi is %s | LTE NB-IoT is %s", str(connected_lora), str(connected_wifi), str(connected_lte))
+# # make the socket non-blocking
+# # (because if there's no data received it will block forever...)
+#     s.setblocking(False)
 
-    # Check the allocated bin name and if the network interface is connected, send the message
-    if bin_name == "Wi-Fi" and connected_wifi:
-        ## Send data using WiFi
-        log.debug("Data on WiFi")
-        post_var(msg, "wifi", msgflow_name)
-    elif bin_name == "LTE-M" and connected_lte:
-        ## Send data using lte
-        log.debug("Data on LTE")
-        post_var(msg, "lte", msgflow_name)
-    # Checking if Lora is connected + We have the socket instance
-    elif bin_name == "LoRaWAN" and connected_lora and sock_lora is not None:
-        ## Send data using lora, Trimming the payload as of now
-        log.debug("Trying sending on Lora %s", str(type(sock_lora)))
-        if len(msg) > MAX_LORA_PAYLOAD:
-            msg = msg[:MAX_LORA_PAYLOAD]
-        sock_lora.send(msg)
-        ack_msg = "ACK:" + msgflow_name
-        uart_write(ack_msg)
-        log.debug("Data on Lora")
-    # If allocated bin is Sigfox and we have the socket instance of sigfox
-    elif bin_name == "SigFox" and sock_sigfox is not None:
-        log.debug("Trying sending on Lora %s", str(type(sock_sigfox)))
-        # Send only important data on SigFox (12bytes)
-        if len(msg) > 12:
-            # If data is greater than 12 bytes, trim it as of now
-            msg = msg[:12]
-        sock_sigfox.send(msg)
-        log.debug("Data sent on SigFox")
-        ack_msg = "ACK:" + msgflow_name
-        uart_write(ack_msg)
-    # Some interface is not connected or socket instance not founc
-    else:
-        uart_write("ERROR:" + msgflow_name + ":" + "NOT_DELIVERED")
+# # get any data received (if any...)
+#     data = s.recv(64)
+#     log.debug(data)
 
-# Sends the request. Please reference the REST API reference https://ubidots.com/docs/api/
-def post_var(msg, medium, msgflow_name):
-    """ Post the message via HTTP Post to the InfluxDB Server """
-    try:
-        url = "http://8.209.93.91:8080/"
-        url = url + medium
-        headers = {"X-Auth-Token": "FiPy", "Content-Type": "application/json"}
-        if msg is not None:
-            req = requests.post(url=url, headers=headers, data=msg)
-            print(req.status_code)
-            if int(req.status_code) is 200 or int(req.status_code) is 500:
-                ack_msg = "ACK:" + msgflow_name
-                uart_write(ack_msg)
-            status_code = req.status_code
-            req.close()
-            return status_code
-        log.debug("WTF: Error Message not sent")
-    except:
-        log.debug("Yahoo")
-        raise
-    return False
+# def read_uart():
+#     """ Function to read UART until newline or the length of message is reached """
+
+# # While waiting for the message with newline to fully arrive
+#     while True:
+#         data = ""
+#         size = len(data)
+
+#         while True:
+#             try:
+#                 # Read UART
+#                 byte = uart.readline()
+#                 new_line = ["\n", "\r"]
+#                 if byte is not None:
+#                     if byte not in new_line:
+#                         if len(byte) == 1:
+#                             ":".join("{:02x}".format(ord(c)) for c in str(byte))
+#                         byte = byte.decode('UTF-8')
+#                         data += byte
+#                 # Check message starting with :ML: (Message Length)
+#                 if data.startswith(':ML:'):
+#                 #Setting ML length to be in format of :ML:500
+#                 # Extract the message length
+#                     temp = data.split(",")
+#                     temp2 = temp[0].split(":")
+#                     msglen = int(temp2[2])
+#                     size = msglen
+#             except:
+#                 log.debug("Len of byte is %s", str(len(byte)))
+#                 log.debug("Troubling byte is %s", str(byte))
+#                 log.debug("Keyboard Interrupt")
+#                 raise
+
+#             if not data:
+#                 log.debug("ERROR")
+#             # Newline terminates the read request
+#             if data.endswith("\n"):
+#                 break
+#             # Sometimes a newline is missing at the end
+#             # If this round has the same data length as previous, we're done
+#             if size == len(data):
+#                 break
+#             size = len(data)
+#         # Remove trailing newlines
+#         if data.startswith(':ML:'):
+#         #Setting ML length to be in format of :ML:500
+#         # Remove the header :ML: and send the actual message back
+#             temp = data.split(",", 1)
+#             data = temp[1]
+#             data = data.rstrip("\r\n")
+#             data = data.rstrip("\n")
+# #        print("Final Message from read_uart is " + data)
+#         return data.encode("UTF-8")
+
+
+# def connect_uart(sock_lora, sock_sigfox):
+#     """ Connect to UART Pins P3/P4 and send data to the cloud"""
+#     while True:
+#         try:
+#             # Read UART continously, if any possible message call read_uart function
+#             if uart.any() != 0:
+#                 uart_msg = read_uart()
+#                 if uart_msg is not None:
+#                     uart_msg = uart_msg.decode("utf-8")
+# #                    print("UART Message Type is " + str(type(uart_msg)) + "and Message is" + str(uart_msg) + "!")
+#                     # Send the UART message to check_connection function with the lora and sigfox socket
+#                     check_connection(uart_msg, sock_lora, sock_sigfox)
+#         except:
+#             log.debug("Keyboard Interrupt")
+#             raise
+
+# def connect_nbiot():
+#     """ Connect to NB-IoT network"""
+#     lte.init()
+#     lte.attach(band=20, apn="pycom.io")
+#     while not lte.isattached():
+#         print('A', end='')
+#         utime.sleep(0.25)
+#     log.debug("LTE: Attached")
+#     lte.connect()       # start a data session and obtain an IP address
+#     while not lte.isconnected():
+#         print('C', end='')
+#         utime.sleep(0.25)
+#     log.debug("LTE: Connected")
+
+# def check_connection(msg_array, sock_lora, sock_sigfox):
+#     """ Check which networks are connected and send data via that network """
+
+#     # Splitting the message to get the flow name, crit_level and msg.
+#     temp_msg = msg_array.split(",")
+#     msgflow_name = temp_msg[0]
+#     msgflow_crit_level = temp_msg[1]
+#     msg = temp_msg[2]
+#     log.debug("%s, %s", msgflow_name, msgflow_crit_level)
+
+#     # Figure out which Network Bin is allocated to the Message Flow
+#     bin_name = mnm.get_network_bin(msgflow_name, int(msgflow_crit_level))
+#     log.debug("Check Network Bin: %s", str(bin_name or 'Not Allocated'))
+#     # If Message Flow has not been allocated, send error message message to RPi
+#     if bin_name is None:
+#         uart_write("ERROR:" + msgflow_name + ":" + "NOT_ALLOCATED")
+
+#     # Again as wifi disconnects, recheck
+#     connected_wifi = wlan.isconnected()
+#     if connected_wifi is False:
+#         connect_wifi(WIFI_SSID, WIFI_PASS)
+#         connected_wifi = wlan.isconnected()
+
+# #    connected_lte = lte.isconnected()
+#     connected_lte = False
+#     connected_lora = lora.has_joined()
+#     log.debug("Lora is %s | Wi-Fi is %s | LTE NB-IoT is %s", str(connected_lora), str(connected_wifi), str(connected_lte))
+
+#     # Check the allocated bin name and if the network interface is connected, send the message
+#     if bin_name == "Wi-Fi" and connected_wifi:
+#         ## Send data using WiFi
+#         log.debug("Data on WiFi")
+#         post_var(msg, "wifi", msgflow_name)
+#     elif bin_name == "LTE-M" and connected_lte:
+#         ## Send data using lte
+#         log.debug("Data on LTE")
+#         post_var(msg, "lte", msgflow_name)
+#     # Checking if Lora is connected + We have the socket instance
+#     elif bin_name == "LoRaWAN" and connected_lora and sock_lora is not None:
+#         ## Send data using lora, Trimming the payload as of now
+#         log.debug("Trying sending on Lora %s", str(type(sock_lora)))
+#         if len(msg) > MAX_LORA_PAYLOAD:
+#             msg = msg[:MAX_LORA_PAYLOAD]
+#         sock_lora.send(msg)
+#         ack_msg = "ACK:" + msgflow_name
+#         uart_write(ack_msg)
+#         log.debug("Data on Lora")
+#     # If allocated bin is Sigfox and we have the socket instance of sigfox
+#     elif bin_name == "SigFox" and sock_sigfox is not None:
+#         log.debug("Trying sending on Lora %s", str(type(sock_sigfox)))
+#         # Send only important data on SigFox (12bytes)
+#         if len(msg) > 12:
+#             # If data is greater than 12 bytes, trim it as of now
+#             msg = msg[:12]
+#         sock_sigfox.send(msg)
+#         log.debug("Data sent on SigFox")
+#         ack_msg = "ACK:" + msgflow_name
+#         uart_write(ack_msg)
+#     # Some interface is not connected or socket instance not founc
+#     else:
+#         uart_write("ERROR:" + msgflow_name + ":" + "NOT_DELIVERED")
+
+# # Sends the request. Please reference the REST API reference https://ubidots.com/docs/api/
+# def post_var(msg, medium, msgflow_name):
+#     """ Post the message via HTTP Post to the InfluxDB Server """
+#     try:
+#         url = "http://8.209.93.91:8080/"
+#         url = url + medium
+#         headers = {"X-Auth-Token": "FiPy", "Content-Type": "application/json"}
+#         if msg is not None:
+#             req = requests.post(url=url, headers=headers, data=msg)
+#             print(req.status_code)
+#             if int(req.status_code) is 200 or int(req.status_code) is 500:
+#                 ack_msg = "ACK:" + msgflow_name
+#                 uart_write(ack_msg)
+#             status_code = req.status_code
+#             req.close()
+#             return status_code
+#         log.debug("WTF: Error Message not sent")
+#     except:
+#         log.debug("Yahoo")
+#         raise
+#     return False
 
 def define_msgflows():
     """ A function to define the Message Flows """
@@ -406,46 +407,48 @@ def define_networks():
 
     # Let's say Wi-Fi network  has 8000 bps bandwidth
     # Just because Wi-Fi disconnects sometimes, even it is present and connected
-    wlan_available = True
-    if wlan.isconnected():
-        log.debug("Adding Wi-Fi to Network")
-        # Defining the network, Refer network_algo.py / Network Class
-        # Network takes Network_Name, Availablity, Bandwidth, Max Payload, Max number of messages
-#        net_wifi = Network("Wi-Fi", True, 8000, -1, -1)
-        net_wifi = Network("Wi-Fi", True, 750000, -1, -1)
+#     wlan_available = True
+#     if wlan.isconnected():
+#         log.debug("Adding Wi-Fi to Network")
+#         # Defining the network, Refer network_algo.py / Network Class
+#         # Network takes Network_Name, Availablity, Bandwidth, Max Payload, Max number of messages
+# #        net_wifi = Network("Wi-Fi", True, 8000, -1, -1)
+    net_wifi = Network("Wi-Fi", True, 750000, -1, -1)
         # Adding the network to the Network Bins
-        mnm.add_network(net_wifi)
-    else:
-        # Trying WiFi one more time
-        connect_wifi(WIFI_SSID, WIFI_PASS)
-        if wlan.isconnected():
-            log.debug("Adding Wi-Fi to Network")
-#            net_wifi = Network("Wi-Fi", True, 8000, -1, -1)
-            net_wifi = Network("Wi-Fi", True, 750000, -1, -1)
-            mnm.add_network(net_wifi)
-        else:
-            # If we are unable to connect to Wi-Fi, then we switch to LTE
-            # As when both Wi-Fi and LTE are connected, it is difficult to find choose which interface the packet will go.
-            log.debug("Giving up WiFi")
-            wlan_available = False
+    mnm.add_network(net_wifi)
+#     else:
+#         # Trying WiFi one more time
+#         connect_wifi(WIFI_SSID, WIFI_PASS)
+#         if wlan.isconnected():
+#             log.debug("Adding Wi-Fi to Network")
+# #            net_wifi = Network("Wi-Fi", True, 8000, -1, -1)
+#             net_wifi = Network("Wi-Fi", True, 750000, -1, -1)
+#             mnm.add_network(net_wifi)
+#         else:
+#             # If we are unable to connect to Wi-Fi, then we switch to LTE
+#             # As when both Wi-Fi and LTE are connected, it is difficult to find choose which interface the packet will go.
+#             log.debug("Giving up WiFi")
+#             wlan_available = False
 
     # Adding Lora to the Network
     # The concept here is if Lora is available, use LoRa
     # If Lora is not avaiable and the radio is free, use sigfox
-    if lora.has_joined():
-        log.debug("Adding LoRaWAN to Network")
-#        print(str(MAX_LORA_PAYLOAD), str(MAX_LORA_BANDWIDTH))
-        net_lora = Network("LoRaWAN", True, MAX_LORA_BANDWIDTH, MAX_LORA_PAYLOAD, 144)
-        mnm.add_network(net_lora)
-    else:
-        # Adding Sigfox to the network
-        net_sigfox = Network("SigFox", True, 100, 12, 144)
-        mnm.add_network(net_sigfox)
+#     if lora.has_joined():
+#         log.debug("Adding LoRaWAN to Network")
+# #        print(str(MAX_LORA_PAYLOAD), str(MAX_LORA_BANDWIDTH))
+    MAX_LORA_BANDWIDTH = 5760
+    MAX_LORA_PAYLOAD = 222
+    net_lora = Network("LoRaWAN", True, MAX_LORA_BANDWIDTH, MAX_LORA_PAYLOAD, 144)
+    mnm.add_network(net_lora)
+    # else:
+    #     # Adding Sigfox to the network
+    net_sigfox = Network("SigFox", True, 100, 12, 144)
+    mnm.add_network(net_sigfox)
 
     # Adding LTE to the network only if Wi-Fi is not available because of the network interface
-    if not wlan_available:
-        net_lte = Network("LTE-M", True, 55000, -1, -1)
-        mnm.add_network(net_lte)
+    # if not wlan_available:
+    net_lte = Network("LTE-M", True, 55000, -1, -1)
+    mnm.add_network(net_lte)
 
 
 def check_allocations():
@@ -515,50 +518,50 @@ def test_reallocation():
 
 def main():
     """ Main function currently make calls to connect all networks and UART """
-    # Connect to the Wi-Fi
-    connect_wifi(WIFI_SSID, WIFI_PASS)
-    # Try to sync the time with NTP
-    rtc.ntp_sync("pool.ntp.org")
-    utime.timezone(3600)
-    utime.sleep(5)
-    rtc.ntp_sync("pool.ntp.org")
-    rtc.ntp_sync("pool.ntp.org")
-    rtc.ntp_sync("pool.ntp.org")
-    # Connect to the lora and save the socket as sock_lora
-    sock_lora = connect_lora_otaa()
-    if sock_lora is None:
-        log.debug("ERROR: Lora socket not returned")
-    sock_sigfox = connect_sigfox()
-    if sock_sigfox is None:
-        log.debug("ERROR: Sigfox socket not returned")
+    # # Connect to the Wi-Fi
+    # connect_wifi(WIFI_SSID, WIFI_PASS)
+    # # Try to sync the time with NTP
+    # rtc.ntp_sync("pool.ntp.org")
+    # utime.timezone(3600)
+    # utime.sleep(5)
+    # rtc.ntp_sync("pool.ntp.org")
+    # rtc.ntp_sync("pool.ntp.org")
+    # rtc.ntp_sync("pool.ntp.org")
+    # # Connect to the lora and save the socket as sock_lora
+    # sock_lora = connect_lora_otaa()
+    # if sock_lora is None:
+    #     log.debug("ERROR: Lora socket not returned")
+    # sock_sigfox = connect_sigfox()
+    # if sock_sigfox is None:
+    #     log.debug("ERROR: Sigfox socket not returned")
 
-    # Although we connect the Wi-Fi, for some reason it gets disconnected, so just checking
-    if not wlan.isconnected():
-        connect_wifi(WIFI_SSID, WIFI_PASS)
-    if wlan.isconnected():
-        log.debug("Wi-Fi is connected")
+    # # Although we connect the Wi-Fi, for some reason it gets disconnected, so just checking
+    # if not wlan.isconnected():
+    #     connect_wifi(WIFI_SSID, WIFI_PASS)
+    # if wlan.isconnected():
+    #     log.debug("Wi-Fi is connected")
 
-    # Allocate the Message Flows defined in the function to the Network Bin
-    start_time = utime.ticks_ms()
+    # # Allocate the Message Flows defined in the function to the Network Bin
+    start_time = time.time_ns()
     print(str(start_time))
     check_allocations()
-    stop_time = utime.ticks_ms()
+    stop_time = time.time_ns()
     print(str(stop_time))
-    realloc_time = stop_time - start_time
+    realloc_time = (stop_time - start_time)/1000000
     print("\nReallocation Time is " + str(realloc_time))
 
-    # Create a tuple and pass it to connect_uart function which checks for messages on UART
-    args_tuple = [sock_lora, sock_sigfox]
-    _thread.start_new_thread(connect_uart, args_tuple)
+#     # Create a tuple and pass it to connect_uart function which checks for messages on UART
+#     args_tuple = [sock_lora, sock_sigfox]
+#     _thread.start_new_thread(connect_uart, args_tuple)
 
-    # Just for debugging purposes? Is Wi-Fi still connected
-    if wlan.isconnected():
-        log.debug("Wi-Fi is connected")
-    else:
-        log.debug("Wi-Fi got disconnected")
-    log.debug("Everything is a thread")
-    # Testing the reallocation by setting Wi-Fi to zero.
-#    test_reallocation()
+#     # Just for debugging purposes? Is Wi-Fi still connected
+#     if wlan.isconnected():
+#         log.debug("Wi-Fi is connected")
+#     else:
+#         log.debug("Wi-Fi got disconnected")
+#     log.debug("Everything is a thread")
+#     # Testing the reallocation by setting Wi-Fi to zero.
+# #    test_reallocation()
 
 
 if __name__ == "__main__":

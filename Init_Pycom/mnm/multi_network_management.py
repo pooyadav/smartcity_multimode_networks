@@ -9,7 +9,7 @@ from binpacking.message_flow_element import MessageFlowElement
 from binpacking.network_bin import NetworkBin
 from binpacking.doublevaluesize import DoubleValueSize
 from binpacking.exceptions.exceptions import BinFullException, DuplicateElementException
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
 log = logging.getLogger("test")
 
 class multi_network_management():
