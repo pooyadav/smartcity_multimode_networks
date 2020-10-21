@@ -1,5 +1,6 @@
 """ Class to store a list of networks, msgflows and allocations """
 import copy
+import logging
 from mnm.msgflow import MessageFlow
 from mnm.network_algo import Network
 from mnm.allocation import Allocation
@@ -8,6 +9,8 @@ from binpacking.message_flow_element import MessageFlowElement
 from binpacking.network_bin import NetworkBin
 from binpacking.doublevaluesize import DoubleValueSize
 from binpacking.exceptions.exceptions import BinFullException, DuplicateElementException
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("test")
 
 class multi_network_management():
     """ Class to store a list of networks, msgflows and allocations """
@@ -87,10 +90,11 @@ class multi_network_management():
     def print_all_allocation(self):
         """ Print all the allocated msgflows """
         list_alloc = []
-        print("Allocated MFE:")
+        log.info("Allocated MFE:")
         for i in self.list_allocations:
             list_alloc.append(i.to_string())
-        print(list_alloc)
+        log.info("MFEA Message:")
+        log.info(list_alloc)
         return list_alloc
 
     def add_msgflow(self, msgflow):
@@ -140,9 +144,9 @@ class multi_network_management():
         for i in range(len(self.list_criticalities) - 1, -1, -1):
             # Get all the allocated elements from all the network bins
             list_allocated = self.get_all_allocated_elements()
-            print("Allocated at criticality level " + str(i +1))
+            log.debug("Allocated at criticality level %s", str(i +1))
             for item in list_allocated:
-                print(str(i+1) + " " + item.get_id())
+                log.debug("%s %", str(i+1), item.get_id())
 
             # Sort the allocated list of MFE by bandwidth utilisation
             self.sort_mfe_by_bandwidth_utilisation(list_allocated, not self.decreasing)
@@ -151,9 +155,9 @@ class multi_network_management():
             iter1_loop = list(self.list_criticalities[i])
             iter1_result = list(self.list_criticalities[i])
 
-            print("Current MFE at criticality level " + str(i))
+            log.debug("Current MFE at criticality level %s", str(i))
             for k in iter1_loop:
-                print(k.get_message_flow().get_name())
+                log.debug(k.get_message_flow().get_name())
             #for j in iter1:
             for j in iter1_loop:
                 temp_msgflow = j.get_message_flow()
@@ -179,13 +183,13 @@ class multi_network_management():
                     success = self.perform_allocation_step(mfe)
 #                    print("upgrade attempt: " + mfe.get_id() + " " + str(old_crit_level) + " -> " + str(i))
                     if success:
-                        print("upgrade success: " + mfe.get_id() + " " + str(old_crit_level) + " -> " + str(i))
+                        log.debug("upgrade success: " + mfe.get_id() + " " + str(old_crit_level) + " -> " + str(i))
                     else:
 #                        print("upgrade failed -- rollback: " + mfe.get_id() + " " + str(old_crit_level) + " <- " + str(i))
                         mfe.set_allocated_crit_level(old_crit_level)
                         success = self.perform_allocation_step(mfe)
                         if not success:
-                            print("Critical Error: unsuccessful rollback of criticality-aware allocation")
+                            log.debug("Critical Error: unsuccessful rollback of criticality-aware allocation")
 
         return all_success
 
@@ -281,7 +285,7 @@ class multi_network_management():
         bin_capacity = self.get_largest_bin().get_capacity()
         # Check if the elements fits into the Network bin
         if not element.fits_into(bin_capacity):
-            print("Element " + element.get_id() + " doesn't fit in to Network Bin " + self.get_largest_bin().get_id())
+            log.debug("Element %s doesn't fit in to Network Bin %s", element.get_id(), self.get_largest_bin().get_id())
             # Check if the element is present in list_unallocated_elements; If present don't add
             if not self.is_in_list_unallocated(element):
 #                self.list_unallocated_elements.append(copy.copy(element))
@@ -330,25 +334,25 @@ class multi_network_management():
                 try:
                     mfe = element
                     nb = matching_bin
-#                    print("Trying allocating " + mfe.get_id() + " of criticality level " + str(mfe.get_allocated_crit_level()) + " in to " + nb.get_id())
+                    log.debug("Trying allocating " + mfe.get_id() + " of criticality level " + str(mfe.get_allocated_crit_level()) + " in to " + nb.get_id())
                     self.allocate(mfe, nb)
                     return True
 
                 except BinFullException as Error:
-                    print("INFO: Network Bin is full")
+                    log.debug("INFO: Network Bin is full")
                     return False
                 except DuplicateElementException as Error:
-                    print("INFO: Duplicate Element")
-                    print(Error)
+                    log.debug("INFO: Duplicate Element")
+                    log.error(Error)
                     return False
 
         return False
 
     def print_unallocated_elements(self):
         """ Print Unallocated MFE """
-        print("\nUn-allocated MFE:")
+        log.info("\nUn-allocated MFE:")
         for mfe in self.list_unallocated_elements:
-            print(mfe.to_string())
+            log.info(mfe.to_string())
 
     def set_first_fit(self):
         """ Set the First fit to True """
@@ -394,80 +398,15 @@ class multi_network_management():
 
     def get_network_bin(self, msgflow_name, msgflow_crit_level):
         for item in self.list_allocations:
-#            print("Testing " + msgflow_name + " with " + str(msgflow_crit_level) + " against " + item.flow.get_name() + " " + str(item.get_crit_level()))
+            log.debug("Testing " + msgflow_name + " with " + str(msgflow_crit_level) + " against " + item.flow.get_name() + " " + str(item.get_crit_level()))
             if item.flow.get_name() == msgflow_name and item.get_crit_level() == msgflow_crit_level:
                 return item.net.get_name()
         # If not found, probably the msg flow is not allocated.
         return None
 
     def print_all_networkbins(self):
-        print("\nCurrent Network Bins are")
+        log.info("\nCurrent Network Bins are")
         for item in self.list_bins:
             name = item.get_id()
             bandwidth = item.get_network().get_bandwidth()
-            print(name + " with a bandwidth of " + str(bandwidth) + " bps")
-
-
-
-
-
-def main():
-    """ Testing """
-    # Critical level
-    falld = MessageFlow("Fall Detection", 0, 1000, 10)
-    falld.set_crit_level(1, 40, 20)
-    falld.set_crit_level(2, 10, 60)
-
-    healthm = MessageFlow("Heart Monitoring", 0, 1000, 5)
-    healthm.set_crit_level(1, 80, 10)
-    healthm.set_crit_level(2, 10, 20)
-
-    bodyt = MessageFlow("Body Temperature", 0, 30, 30)
-    bodyt.set_crit_level(1, 10, 120)
-
-    bedsens = MessageFlow("Bedroom Sensor", 0, 40000, 10)
-    bedsens.set_crit_level(1, 10, 30)
-
-    bathsens = MessageFlow("Bathroom Sensor", 0, 80, 10)
-    bathsens.set_crit_level(1, 10, 30)
-
-    kitsens = MessageFlow("Kitchen Sensor", 0, 40000, 10)
-    kitsens.set_crit_level(1, 10, 30)
-
-    frontsens = MessageFlow("Front Door Sensor", 0, 40000, 10)
-    frontsens.set_crit_level(1, 10, 30)
-
-    enermon = MessageFlow("Energy Usage", 0, 40, 3600)
-
-    # Let's say network 1 has 8000 bps bandwidth
-    network1 = Network("Wi-Fi", True, 8000, -1, -1)
-    network4 = Network("LoRaWAN", True, 220, 222, 144)
-    network2 = Network("SigFox", True, 6, 12, 144)
-    network3 = Network("LTE-M", True, 10, 12, 144)
-    mnm = multi_network_management()
-    mnm.add_msgflow(falld)
-    mnm.add_msgflow(healthm)
-    mnm.add_msgflow(bodyt)
-    mnm.add_msgflow(bedsens)
-    mnm.add_msgflow(bathsens)
-    mnm.add_msgflow(kitsens)
-    mnm.add_msgflow(frontsens)
-    mnm.add_msgflow(enermon)
-    mnm.add_network(network1)
-    mnm.add_network(network4)
-    mnm.add_network(network2)
-
-
-    mnm.set_decreasing(False)
-    mnm.set_best_fit()
-
-    mnm.perform_inverted_allocation()
-    mnm.print_all_allocation()
-    mnm.print_unallocated_elements()
-    print("\nAllocated Percentage is " + str(mnm.get_allocated_percentage()))
-    print("Average Criticality is " + str(mnm.get_avg_criticality()))
-    print(get_network_bin("Energy Usage", 0))
-
-
-if __name__ == '__main__':
-    main()
+            log.info("%s with a bandwidth of %s bps", name, str(bandwidth))

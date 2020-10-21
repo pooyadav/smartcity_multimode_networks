@@ -1,4 +1,7 @@
 """ Allocation Class mainly allocates a msgflow to a network interface """
+import logging
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("test")
 class Allocation:
     """ Allocation class takes msgflow, network and criticality level """
 
@@ -27,5 +30,5 @@ class Allocation:
         string = self.net.get_name() + " <- " + str(self.get_crit_level()) + " - " + self.flow.get_name()
         # Creating a dict for sending on UART
         dict_alloc = {"MF": self.flow.get_name(), "CL": self.get_crit_level(), "N":self.net.get_name(), "PS": self.flow.get_payload(self.get_crit_level()), "PE": self.flow.get_period(self.get_crit_level())}
-        print(string)
+        log.info(string)
         return dict_alloc
