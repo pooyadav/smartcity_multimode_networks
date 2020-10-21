@@ -10,7 +10,7 @@ from binpacking.network_bin import NetworkBin
 from binpacking.doublevaluesize import DoubleValueSize
 from binpacking.exceptions.exceptions import BinFullException, DuplicateElementException
 logging.basicConfig(level=logging.INFO)
-log = logging.getLogger("test")
+log = logging.getLogger("MNM")
 
 class multi_network_management():
     """ Class to store a list of networks, msgflows and allocations """
@@ -19,6 +19,9 @@ class multi_network_management():
     list_networks = []
     list_msgflows = []
     list_allocations = []
+    # List to store old still valid allocations until new reallocations are setup
+    # so that we can serve msgflows which are not affected.
+    list_old_allocations = []
     # Utilisation based MultiNetwork Mangement
     list_elements = []
     list_elements_original = []
@@ -146,7 +149,7 @@ class multi_network_management():
             list_allocated = self.get_all_allocated_elements()
             log.debug("Allocated at criticality level %s", str(i +1))
             for item in list_allocated:
-                log.debug("%s %", str(i+1), item.get_id())
+                log.debug("%s %s", str(i+1), item.get_id())
 
             # Sort the allocated list of MFE by bandwidth utilisation
             self.sort_mfe_by_bandwidth_utilisation(list_allocated, not self.decreasing)
@@ -397,7 +400,16 @@ class multi_network_management():
         return result
 
     def get_network_bin(self, msgflow_name, msgflow_crit_level):
+        # If the reallocation has happened, the list_old_allocations will be valid for short amount of time
+        for item in self.list_old_allocations:
+            log.info("Item found in Old Allocations")
+            log.debug("Testing " + msgflow_name + " with " + str(msgflow_crit_level) + " against " + item.flow.get_name() + " " + str(item.get_crit_level()))
+            if item.flow.get_name() == msgflow_name and item.get_crit_level() == msgflow_crit_level:
+                return item.net.get_name()
+
+        # Check in the new allocations table: This way we ensure that message flows which are already written in UART, get delivered.
         for item in self.list_allocations:
+            log.debug("Item found in New Allocations")
             log.debug("Testing " + msgflow_name + " with " + str(msgflow_crit_level) + " against " + item.flow.get_name() + " " + str(item.get_crit_level()))
             if item.flow.get_name() == msgflow_name and item.get_crit_level() == msgflow_crit_level:
                 return item.net.get_name()
