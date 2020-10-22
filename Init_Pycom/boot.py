@@ -59,7 +59,6 @@ def uart_write(msg):
     len_of_header = 5 + len(str(msg_len))
     uart_msg = ":ML:" + str(msg_len + len_of_header) + "," + msg + "\n"
     uart_msg = uart_msg.encode('utf-8')
-    print(uart_msg)
     uart.write(uart_msg)
 
 
@@ -239,13 +238,18 @@ def read_uart():
                 break
             size = len(data)
         # Remove trailing newlines
-        if data.startswith(':ML:'):
+
+        
+        if data.startswith(':ML:') and data.endswith("\n"):
         #Setting ML length to be in format of :ML:500
         # Remove the header :ML: and send the actual message back
             temp = data.split(",", 1)
             data = temp[1]
             data = data.rstrip("\r\n")
             data = data.rstrip("\n")
+        else:
+            print("Something is wrong")
+            print(data)
 #        print("Final Message from read_uart is " + data)
         return data.encode("UTF-8")
 
@@ -289,17 +293,14 @@ def connect_nbiot():
 
 def check_connection(msg_array, sock_lora, sock_sigfox):
     """ Check which networks are connected and send data via that network """
-
-    # Splitting the message to get the flow name, crit_level and msg.
-
-    temp_msg = msg_array.split(",")
-    msgflow_name = temp_msg[0]
-    msgflow_crit_level = temp_msg[1]
-    msg = temp_msg[2]
-    log.debug("%s, %s", msgflow_name, msgflow_crit_level)
-
     # Figure out which Network Bin is allocated to the Message Flow
     try:
+    # Splitting the message to get the flow name, crit_level and msg.
+        temp_msg = msg_array.split(",")
+        msgflow_name = temp_msg[0]
+        msgflow_crit_level = temp_msg[1]
+        msg = temp_msg[2]
+        log.debug("%s, %s", msgflow_name, msgflow_crit_level)
         bin_name = mnm.get_network_bin(msgflow_name, int(msgflow_crit_level))
         log.debug("Check Network Bin: %s", str(bin_name or 'Not Allocated'))
     except:
