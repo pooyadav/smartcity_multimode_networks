@@ -5,7 +5,7 @@ import sys
 import struct
 import socket
 import logging
-import pickle
+import ubinascii
 from network import WLAN
 from network import Sigfox
 from network import LTE
@@ -52,12 +52,16 @@ lte = LTE()
 
 def uart_write(msg):
     """ Function to add ML and Newline as header """
-    msg_len = len(msg)
+    
     if msg.startswith("MFEA:"):
-        log.info(rtc.now())
+        log.info("MFEA Message sent at %s", rtc.now())
     # 5 == 4 for :ML:
+    print(type(msg))
+    base64_enc_msg = ubinascii.b2a_base64(msg)
+    base64_enc_msg = base64_enc_msg.decode('utf-8')
+    msg_len = len(base64_enc_msg)
     len_of_header = 5 + len(str(msg_len))
-    uart_msg = ":ML:" + str(msg_len + len_of_header) + "," + msg + "\n"
+    uart_msg = ":ML:" + str(msg_len + len_of_header) + "," + base64_enc_msg + "\n"
     uart_msg = uart_msg.encode('utf-8')
     uart.write(uart_msg)
 
@@ -239,7 +243,7 @@ def read_uart():
             size = len(data)
         # Remove trailing newlines
 
-        
+
         if data.startswith(':ML:') and data.endswith("\n"):
         #Setting ML length to be in format of :ML:500
         # Remove the header :ML: and send the actual message back
@@ -268,6 +272,7 @@ def connect_uart(sock_lora, sock_sigfox):
                     if uart_msg.startswith("INFO:RE-ALLOC:ACCEPTED"):
                         # Ack message received from RPI, we can now clear list_old_allocations.
                         # As the messages already before this message would have been served using old Allocations
+                        log.info("Re-alloc Accept message received at %s", rtc.now())
                         log.debug("Re-alloc ACK message received deleting old allocations")
                         mnm.list_old_allocations.clear()
                     else:
@@ -499,6 +504,7 @@ def test_reallocation():
     """ Funtion to test the reallocation setting the WiFi to be disabled """
     # Send the message to FiPy that we are reallocating the message flows, notify the Applications (Threads to stop the messages)
     uart_write("INFO:RE-ALLOC:INIT")
+    log.info("Re-alloc INIT message sent at %s", rtc.now())
     # Simulating that the Wi-Fi is disconnected
     log.debug("Setting the WiFi bandwidth to 0")
     log.debug(mnm.list_elements)
