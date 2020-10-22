@@ -1,7 +1,7 @@
 """ Allocation Class mainly allocates a msgflow to a network interface """
 import logging
 logging.basicConfig(level=logging.INFO)
-log = logging.getLogger("test")
+log = logging.getLogger("ALLOCATION")
 class Allocation:
     """ Allocation class takes msgflow, network and criticality level """
 

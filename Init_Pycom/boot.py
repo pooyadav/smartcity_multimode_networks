@@ -5,6 +5,7 @@ import sys
 import struct
 import socket
 import logging
+import pickle
 from network import WLAN
 from network import Sigfox
 from network import LTE
@@ -21,11 +22,11 @@ from mnm.msgflow import MessageFlow
 from mnm.network_algo import Network
 rtc = machine.RTC()
 # Testing logging
-logging.basicConfig(level=logging.WARNING)
-log = logging.getLogger("test")
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("BOOT")
 # UART Definitions
-uart = UART(1, 9600)                         # init with given baudrate
-uart.init(9600, bits=8, parity=None, stop=1) # init with given parameters
+uart = UART(1, 115200)                         # init with given baudrate
+uart.init(115200, bits=8, parity=None, stop=1) # init with given parameters
 mnm = multi_network_management()
 
 
@@ -52,6 +53,8 @@ lte = LTE()
 def uart_write(msg):
     """ Function to add ML and Newline as header """
     msg_len = len(msg)
+    if msg.startswith("MFEA:"):
+        log.info(rtc.now())
     # 5 == 4 for :ML:
     len_of_header = 5 + len(str(msg_len))
     uart_msg = ":ML:" + str(msg_len + len_of_header) + "," + msg + "\n"
@@ -235,13 +238,18 @@ def read_uart():
                 break
             size = len(data)
         # Remove trailing newlines
-        if data.startswith(':ML:'):
+
+        
+        if data.startswith(':ML:') and data.endswith("\n"):
         #Setting ML length to be in format of :ML:500
         # Remove the header :ML: and send the actual message back
             temp = data.split(",", 1)
             data = temp[1]
             data = data.rstrip("\r\n")
             data = data.rstrip("\n")
+        else:
+            print("Something is wrong")
+            print(data)
 #        print("Final Message from read_uart is " + data)
         return data.encode("UTF-8")
 
@@ -257,7 +265,14 @@ def connect_uart(sock_lora, sock_sigfox):
                     uart_msg = uart_msg.decode("utf-8")
 #                    print("UART Message Type is " + str(type(uart_msg)) + "and Message is" + str(uart_msg) + "!")
                     # Send the UART message to check_connection function with the lora and sigfox socket
-                    check_connection(uart_msg, sock_lora, sock_sigfox)
+                    if uart_msg.startswith("INFO:RE-ALLOC:ACCEPTED"):
+                        # Ack message received from RPI, we can now clear list_old_allocations.
+                        # As the messages already before this message would have been served using old Allocations
+                        log.debug("Re-alloc ACK message received deleting old allocations")
+                        mnm.list_old_allocations.clear()
+                    else:
+                        # Must contain the Message payload
+                        check_connection(uart_msg, sock_lora, sock_sigfox)
         except:
             log.debug("Keyboard Interrupt")
             raise
@@ -278,17 +293,18 @@ def connect_nbiot():
 
 def check_connection(msg_array, sock_lora, sock_sigfox):
     """ Check which networks are connected and send data via that network """
-
-    # Splitting the message to get the flow name, crit_level and msg.
-    temp_msg = msg_array.split(",")
-    msgflow_name = temp_msg[0]
-    msgflow_crit_level = temp_msg[1]
-    msg = temp_msg[2]
-    log.debug("%s, %s", msgflow_name, msgflow_crit_level)
-
     # Figure out which Network Bin is allocated to the Message Flow
-    bin_name = mnm.get_network_bin(msgflow_name, int(msgflow_crit_level))
-    log.debug("Check Network Bin: %s", str(bin_name or 'Not Allocated'))
+    try:
+    # Splitting the message to get the flow name, crit_level and msg.
+        temp_msg = msg_array.split(",")
+        msgflow_name = temp_msg[0]
+        msgflow_crit_level = temp_msg[1]
+        msg = temp_msg[2]
+        log.debug("%s, %s", msgflow_name, msgflow_crit_level)
+        bin_name = mnm.get_network_bin(msgflow_name, int(msgflow_crit_level))
+        log.debug("Check Network Bin: %s", str(bin_name or 'Not Allocated'))
+    except:
+        log.info("Message received is %s", msg_array)
     # If Message Flow has not been allocated, send error message message to RPi
     if bin_name is None:
         uart_write("ERROR:" + msgflow_name + ":" + "NOT_ALLOCATED")
@@ -363,8 +379,11 @@ def post_var(msg, medium, msgflow_name):
 def define_msgflows():
     """ A function to define the Message Flows """
 
-    MUL_CRIT_0 = 100000
-    MUL_CRIT_1 = 5000
+#    MUL_CRIT_0 = 100000
+#    MUL_CRIT_1 = 5000
+    MUL_CRIT_0 = 1
+    MUL_CRIT_1 = 1
+
     falld = MessageFlow("Fall Detection", 0, 1000 * MUL_CRIT_0, 10)
     falld.set_crit_level(1, 40 * MUL_CRIT_1, 20)
     falld.set_crit_level(2, 10, 60)
@@ -466,7 +485,8 @@ def check_allocations():
     new_alloc = mnm.print_all_allocation()
     msgflow_alloc = "MFEA:" + str(new_alloc)
     msgflow_alloc_enc = msgflow_alloc.encode('UTF-8')
-#    uart_write(msgflow_alloc)
+    print(msgflow_alloc)
+    uart_write(msgflow_alloc)
 
 # Print Unallocated Message Flow Elements
     mnm.print_unallocated_elements()
@@ -477,12 +497,28 @@ def check_allocations():
 
 def test_reallocation():
     """ Funtion to test the reallocation setting the WiFi to be disabled """
-
+    # Send the message to FiPy that we are reallocating the message flows, notify the Applications (Threads to stop the messages)
+    uart_write("INFO:RE-ALLOC:INIT")
+    # Simulating that the Wi-Fi is disconnected
     log.debug("Setting the WiFi bandwidth to 0")
     log.debug(mnm.list_elements)
     mnm.list_bins[0].get_network().set_bandwidth(0)
+    bin_name = mnm.list_bins[0].get_network().get_name()
+    print(bin_name)
+    old_alloc = []
+    # Trying to copy the allocations without the WiFi, have to do it differently because micropython copy doesn't allow copying objects
+    for item in mnm.list_allocations:
+        temp_name = item.get_network().get_name()
+        if temp_name is not bin_name:
+            print("Adding msgflow from " + temp_name)
+            old_alloc.append(item)
+    print("Old Allocations should be None atm")
+    print(mnm.list_old_allocations)
+    mnm.list_old_allocations = old_alloc[:]
     # Remove all the allocations
     mnm.list_allocations.clear()
+    print("Old Allocations????")
+    print(mnm.list_old_allocations)
     # CLear the list of criticalities
     mnm.list_criticalities.clear()
     # Redefine the list of criticalities
@@ -506,15 +542,19 @@ def test_reallocation():
     mnm.perform_inverted_allocation()
     new_alloc = mnm.print_all_allocation()
     msgflow_alloc = "MFEA:" + str(new_alloc)
-#    uart_write(msgflow_alloc)
     mnm.print_unallocated_elements()
     log.info("Allocated Percentage is %s", str(mnm.get_allocated_percentage()))
     log.info("Average Criticality is %s", str(mnm.get_avg_criticality()))
+    uart_write(msgflow_alloc)
 
 
 
 def main():
     """ Main function currently make calls to connect all networks and UART """
+    ## Flush the uart
+    while uart.any():
+        uart.readline()
+    print("Cleared the UART")
     # Connect to the Wi-Fi
     connect_wifi(WIFI_SSID, WIFI_PASS)
     # Try to sync the time with NTP
@@ -540,12 +580,10 @@ def main():
 
     # Allocate the Message Flows defined in the function to the Network Bin
     start_time = utime.ticks_ms()
-    print(str(start_time))
     check_allocations()
     stop_time = utime.ticks_ms()
-    print(str(stop_time))
     realloc_time = stop_time - start_time
-    print("\nReallocation Time is " + str(realloc_time))
+    print("\nAllocation Time is " + str(realloc_time))
 
     # Create a tuple and pass it to connect_uart function which checks for messages on UART
     args_tuple = [sock_lora, sock_sigfox]
