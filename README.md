@@ -38,7 +38,7 @@ Q4: What current mechanisms are used to take data usage consent from an end-user
    
 
 ---------------------------------------------------------------------------------------------------------------------
-#FiPY Board setup
+# FiPY Board setup
 
 
 The FiPY generates the MFEA (Message Flow Element Allocation) message (a list of dict)
